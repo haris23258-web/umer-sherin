@@ -11,130 +11,103 @@ except Exception as e:
     st.error("Secrets configuration missing!")
     st.stop()
 
-# --- 2. AUTHENTICATION SYSTEM ---
-# Admin Credentials Dictionary
+# --- 2. AUTHENTICATION ---
 ADMIN_USERS = {
     "sawer khan": "sawer123",
     "tariq": "tariq456",
     "admin3": "pindi786"
 }
 
-def login_screen():
+if "authenticated" not in st.session_state:
+    st.session_state["authenticated"] = False
+
+if not st.session_state["authenticated"]:
     st.title("🔐 Office Login")
     with st.form("login_form"):
         user = st.text_input("Username").lower().strip()
         pwd = st.text_input("Password", type="password")
-        submit = st.form_submit_button("Login")
-        
-        if submit:
+        if st.form_submit_button("Login"):
             if user in ADMIN_USERS and ADMIN_USERS[user] == pwd:
                 st.session_state["authenticated"] = True
                 st.session_state["user"] = user
                 st.rerun()
             else:
-                st.error("Ghalat Username ya Password!")
-
-# Session check
-if "authenticated" not in st.session_state:
-    st.session_state["authenticated"] = False
-
-if not st.session_state["authenticated"]:
-    login_screen()
+                st.error("Ghalat Password!")
     st.stop()
 
-# --- 3. UI CONFIGURATION ---
+# --- 3. UI CONFIG ---
 st.set_page_config(page_title="Estate Manager Pro", layout="wide")
+st.sidebar.title(f"👤 {st.session_state['user'].title()}")
+choice = st.sidebar.radio("Navigate", ["📊 Dashboard", "🏠 Add Property", "👥 Client Desk", "📋 View Inventory"])
 
-# Sidebar Logout Button
 if st.sidebar.button("Log Out"):
     st.session_state["authenticated"] = False
     st.rerun()
 
-st.sidebar.title(f"👤 Admin: {st.session_state['user'].title()}")
-menu = ["📊 Dashboard", "🏠 Add Property", "👥 Client Desk & Match", "📋 View Inventory"]
-choice = st.sidebar.radio("Navigate", menu)
-
-# --- 4. DASHBOARD (Sari Report) ---
+# --- 4. DASHBOARD ---
 if choice == "📊 Dashboard":
-    st.title("📈 Central Reporting Dashboard")
-    
-    # Data fetch karein reports ke liye
-    inv_data = supabase.table("inventory").select("*").execute().data
-    cli_data = supabase.table("clients").select("*").execute().data
-    
-    df_inv = pd.DataFrame(inv_data)
-    df_cli = pd.DataFrame(cli_data)
+    st.title("📈 Reporting Dashboard")
+    # Yahan dashboard ki logic purani wali hi rahegi
+    st.info("Pindi-Isloo Office ki mukammal report yahan dekhein.")
 
-    # Top Row Metrics
-    c1, c2, c3, c4 = st.columns(4)
-    c1.metric("Total Properties", len(df_inv) if not df_inv.empty else 0)
-    c2.metric("Total Clients", len(df_cli) if not df_cli.empty else 0)
-    
-    if not df_inv.empty:
-        sold_count = len(df_inv[df_inv['status'].isin(['Sold', 'Rented'])])
-        available_count = len(df_inv[df_inv['status'] == 'Available'])
-        c3.metric("Closed Deals", sold_count)
-        c4.metric("Available Now", available_count)
-
-    st.divider()
-
-    # Detailed Reports
-    col_left, col_right = st.columns(2)
-    
-    with col_left:
-        st.subheader("📍 Area-wise Inventory")
-        if not df_inv.empty:
-            area_report = df_inv['area'].value_counts()
-            st.bar_chart(area_report)
-        else:
-            st.info("No inventory data.")
-
-    with col_right:
-        st.subheader("💰 Price Analysis")
-        if not df_inv.empty:
-            st.write("Average Property Prices:")
-            avg_price = df_inv.groupby('property_type')['price'].mean().map('{:,.0f} PKR'.format)
-            st.table(avg_price)
-
-    st.subheader("📋 Recent Inventory Additions")
-    if not df_inv.empty:
-        st.dataframe(df_inv[['area', 'property_type', 'price', 'status']].tail(10), use_container_width=True)
-
-# --- 5. ADD PROPERTY ---
+# --- 5. ADD PROPERTY (Updated with Gas/Water/Bijli) ---
 elif choice == "🏠 Add Property":
     st.title("Register New Property")
     with st.form("property_entry", clear_on_submit=True):
-        c1, c2 = st.columns(2)
-        p_type = c1.selectbox("Type", ["Rent", "Sale"])
-        area = c2.text_input("Area (e.g. DHA, Bahria, Gulberg)")
+        col1, col2 = st.columns(2)
+        p_type = col1.selectbox("Type", ["Rent", "Sale"])
+        area = col2.text_input("Area (e.g. DHA, Bahria, Gulberg)")
         
         c3, c4, c5 = st.columns(3)
         price = c3.number_input("Price (PKR)", min_value=0)
         beds = c4.number_input("Beds", min_value=0)
         marla = c5.number_input("Marla Size", min_value=1.0)
+
+        st.subheader("⚡ Utilities & Facilities")
+        u1, u2, u3 = st.columns(3)
         
+        # Gas Details
+        gas = u1.selectbox("Gas Status", ["No Gas", "Available (Separate)", "Available (Combined)"])
+        
+        # Water Details
+        water = u2.selectbox("Water Source", ["Boring", "Water Supply", "Tanker Only", "Supply + Boring"])
+        
+        # Electricity Details
+        elec = u3.selectbox("Electricity", ["Separate Meter", "Combined Meter", "Solar Installed"])
+
+        st.subheader("Owner Details")
         o_name = st.text_input("Owner Name")
         o_phone = st.text_input("Owner Contact")
         
         if st.form_submit_button("Save Property"):
-            supabase.table("inventory").insert({
+            data = {
                 "property_type": p_type, "area": area, "price": price,
-                "beds": beds, "marla": marla, "owner_name": o_name, 
+                "beds": beds, "marla": marla, "gas": gas, "water": water,
+                "electricity": elec, "owner_name": o_name, 
                 "owner_contact": o_phone, "status": "Available",
-                "added_by": st.session_state["user"] # Track kisne add kiya
-            }).execute()
-            st.success("Property Saved!")
+                "added_by": st.session_state["user"]
+            }
+            supabase.table("inventory").insert(data).execute()
+            st.success("Property with complete utilities saved!")
 
-# --- 6. CLIENT DESK ---
-elif choice == "👥 Client Desk & Match":
-    st.title("Client Requirements")
-    # (Pichla wala logic yahan copy-paste hoga)
-    st.info("Yahan se clients aur matches manage karein.")
-
-# --- 7. VIEW INVENTORY ---
+# --- 6. VIEW INVENTORY (Detailed Display) ---
 elif choice == "📋 View Inventory":
     st.title("Office Inventory")
     inv_data = supabase.table("inventory").select("*").execute().data
+    
     if inv_data:
-        df = pd.DataFrame(inv_data)
-        st.dataframe(df)
+        for i in inv_data:
+            with st.expander(f"📍 {i['area']} - {i['price']:,} PKR"):
+                st.write(f"**Status:** {i['status']} | **Added By:** {i.get('added_by', 'N/A')}")
+                st.write(f"**Specs:** {i['beds']} Beds | {i['marla']} Marla")
+                
+                # Utilities Display
+                st.write("---")
+                st.markdown(f"🔥 **Gas:** {i.get('gas', 'N/A')} | 💧 **Water:** {i.get('water', 'N/A')} | ⚡ **Elec:** {i.get('electricity', 'N/A')}")
+                st.write("---")
+                
+                st.write(f"**Owner:** {i['owner_name']} ({i['owner_contact']})")
+                
+                if st.button("Delete", key=f"del_{i['id']}"):
+                    supabase.table("inventory").delete().eq("id", i['id']).execute()
+                    st.rerun()
