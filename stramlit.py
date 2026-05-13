@@ -3,150 +3,188 @@ from supabase import create_client
 import pandas as pd
 from urllib.parse import quote
 
-# --- 1. DB CONNECTION ---
+# --- 1. CONFIG & DATABASE ---
+st.set_page_config(page_title="RealtyPro Enterprise", layout="wide", page_icon="🏢")
+
 try:
+    # Make sure these are in your Streamlit Secrets
     supabase = create_client(st.secrets["SUPABASE_URL"], st.secrets["SUPABASE_KEY"])
-except:
-    st.error("Database Connection Failed!")
+except Exception as e:
+    st.error("Database Connection Error. Please check your Supabase Secrets.")
     st.stop()
 
-# --- 2. AUTHENTICATION & ROLES ---
-ADMINS = {
-    "sawer khan": {"pwd": "sawer123", "role": "Manager"},
-    "tariq": {"pwd": "tariq456", "role": "Manager"},
+# --- 2. ADVANCED AUTH SYSTEM ---
+# Admin can manage accounts, Agents can only manage properties/clients
+USERS = {
+    "sawer khan": {"pwd": "sawer123", "role": "Admin"},
+    "tariq": {"pwd": "tariq456", "role": "Admin"},
     "agent1": {"pwd": "pindi786", "role": "Agent"}
 }
 
-if "auth" not in st.session_state: st.session_state.auth = False
+if "auth" not in st.session_state:
+    st.session_state.auth = False
 
 if not st.session_state.auth:
-    st.title("🛡️ Enterprise ERP Login")
-    u = st.text_input("Username").lower().strip()
-    p = st.text_input("Password", type="password")
-    if st.button("Login"):
-        if u in ADMINS and ADMINS[u]['pwd'] == p:
-            st.session_state.auth, st.session_state.user = True, u
-            st.session_state.role = ADMINS[u]['role']
-            st.rerun()
+    st.title("🔐 RealtyPro ERP Login")
+    col_l, col_r = st.columns([1, 1])
+    with col_l:
+        u = st.text_input("Username").lower().strip()
+        p = st.text_input("Password", type="password")
+        if st.button("Login to System", use_container_width=True):
+            if u in USERS and USERS[u]['pwd'] == p:
+                st.session_state.auth = True
+                st.session_state.user = u
+                st.session_state.role = USERS[u]['role']
+                st.rerun()
+            else:
+                st.error("Invalid Username or Password")
     st.stop()
 
-# --- 3. SIDEBAR NAVIGATION (Same Style, More Power) ---
-st.sidebar.title(f"🏢 {st.session_state.user.title()}")
-st.sidebar.write(f"Access Level: **{st.session_state.role}**")
-nav = st.sidebar.radio("ERP MODULES", ["📊 Dashboard", "🏠 Inventory Engine", "👥 Client CRM & Match", "💰 Accounts Ledger"])
+# --- 3. SIDEBAR NAVIGATION ---
+st.sidebar.title(f"Welcome, {st.session_state.user.title()}")
+st.sidebar.markdown(f"**Role:** `{st.session_state.role}`")
+st.sidebar.divider()
+
+menu = st.sidebar.radio("MANAGEMENT MODULES", [
+    "📊 Business Overview", 
+    "🏠 Inventory Engine", 
+    "👥 Client CRM", 
+    "🎯 Smart Matcher", 
+    "💰 Financial Ledger"
+])
 
 if st.sidebar.button("Logout"):
     st.session_state.auth = False
     st.rerun()
 
-# --- 4. DASHBOARD ---
-if nav == "📊 Dashboard":
-    st.title("Market Analytics")
+# --- 4. MODULE: DASHBOARD ---
+if menu == "📊 Business Overview":
+    st.title("Market Analytics & Stats")
+    
+    # Fetch Data
     inv = supabase.table("inventory").select("*").execute().data
     cli = supabase.table("clients").select("*").execute().data
     acc = supabase.table("accounts").select("*").execute().data
     
-    c1, c2, c3 = st.columns(3)
-    c1.metric("Properties", len(inv) if inv else 0)
-    c2.metric("Total Clients", len(cli) if cli else 0)
+    m1, m2, m3, m4 = st.columns(4)
+    m1.metric("Total Listings", len(inv) if inv else 0)
+    m2.metric("Total Leads", len(cli) if cli else 0)
     
-    if acc and st.session_state.role == "Manager":
+    if st.session_state.role == "Admin" and acc:
         df_acc = pd.DataFrame(acc)
-        profit = df_acc[df_acc['type']=='Income']['amount'].sum() - df_acc[df_acc['type']=='Expense']['amount'].sum()
-        c3.metric("Net Profit", f"{profit:,} PKR")
+        total_income = df_acc[df_acc['type'] == 'Income']['amount'].sum()
+        total_expense = df_acc[df_acc['type'] == 'Expense']['amount'].sum()
+        m3.metric("Revenue (PKR)", f"{total_income:,}")
+        m4.metric("Net Profit", f"{total_income - total_expense:,}")
 
-# --- 5. INVENTORY ENGINE ---
-elif nav == "🏠 Inventory Engine":
+    st.divider()
+    if inv:
+        st.subheader("Area-wise Property Distribution")
+        df_inv = pd.DataFrame(inv)
+        st.bar_chart(df_inv['area'].value_counts())
+
+# --- 5. MODULE: INVENTORY ENGINE ---
+elif menu == "🏠 Inventory Engine":
     st.title("Property Management")
-    with st.expander("➕ Add New Premium Listing"):
-        with st.form("inv_form", clear_on_submit=True):
+    tab1, tab2 = st.tabs(["➕ Add New Listing", "📂 Browse Inventory"])
+    
+    with tab1:
+        with st.form("inventory_form", clear_on_submit=True):
             c1, c2, c3 = st.columns(3)
-            cat = c1.selectbox("Category", ["Residential", "Commercial", "Plot"])
-            dtype = c2.selectbox("Type", ["Sale", "Rent"])
-            area = c3.text_input("Area / Sector (e.g. DHA 2, G-11)")
+            category = c1.selectbox("Category", ["Residential", "Commercial", "Plot"])
+            deal_type = c2.selectbox("Deal Type", ["Sale", "Rent"])
+            sub_type = c3.selectbox("Sub-Type", ["House", "Flat", "Shop", "Office", "Plot"])
             
             p1, p2, p3 = st.columns(3)
-            price = p1.number_input("Demand (PKR)", min_value=0)
-            beds = p2.number_input("Beds", 0, 10)
-            marla = p3.number_input("Size (Marla)", 0.1)
+            area = p1.text_input("Area / Sector")
+            price = p2.number_input("Demand (PKR)", min_value=0)
+            size = p3.number_input("Size (Marla/Kanal)", min_value=0.0)
             
+            o1, o2 = st.columns(2)
+            owner = o1.text_input("Owner Name")
+            contact = o2.text_input("Owner Contact")
             maps = st.text_input("Google Maps Link")
-            owner = st.text_input("Owner Name & Contact")
             
-            if st.form_submit_button("Publish Listing"):
+            if st.form_submit_button("🚀 PUBLISH PROPERTY"):
                 supabase.table("inventory").insert({
-                    "property_category": cat, "property_type": dtype, "area": area,
-                    "price": price, "beds": beds, "marla": marla, "owner_name": owner,
-                    "location_link": maps, "added_by": st.session_state.user
+                    "property_category": category, "property_type": deal_type, "sub_type": sub_type,
+                    "area": area, "price": price, "marla": size, "owner_name": owner,
+                    "owner_contact": contact, "location_link": maps, "added_by": st.session_state.user
                 }).execute()
-                st.success("Property Added!")
+                st.success("Property added to live database!")
 
-    # Search List
-    st.subheader("📂 All Records")
-    res = supabase.table("inventory").select("*").execute().data
-    if res:
-        for p in res:
-            with st.container(border=True):
-                col_a, col_b = st.columns([4, 1])
-                col_a.write(f"### {p['area']} - {p['price']:,} PKR")
-                col_a.write(f"**Specs:** {p['marla']} Marla | {p['beds']} Beds | Owner: {p['owner_name']}")
-                if p.get('location_link'): col_a.link_button("📍 Map", p['location_link'])
-                if col_b.button("Delete", key=f"del_{p['id']}"):
-                    supabase.table("inventory").delete().eq("id", p['id']).execute()
-                    st.rerun()
-
-# --- 6. CLIENT CRM & SMART MATCH ---
-elif nav == "👥 Client CRM & Match":
-    st.title("Client Lead Management")
-    t1, t2 = st.tabs(["🆕 Register Client", "🎯 Intelligent Match Engine"])
-    
-    with t1:
-        with st.form("cli_form", clear_on_submit=True):
-            c_name = st.text_input("Client Name")
-            c_phone = st.text_input("WhatsApp Number (e.g. 923001234567)")
-            c_budget = st.number_input("Max Budget", min_value=0)
-            c_req = st.selectbox("Req Type", ["Rent", "Sale"])
-            c_status = st.selectbox("Priority", ["Hot 🔥", "Warm", "Cold"])
-            if st.form_submit_button("Save Lead"):
-                supabase.table("clients").insert({
-                    "client_name": c_name, "client_contact": c_phone, 
-                    "max_budget": c_budget, "demand_type": c_req, "status": c_status
-                }).execute()
-                st.success("Client Registered!")
-
-    with t2:
-        cls = supabase.table("clients").select("*").execute().data
-        if cls:
-            sel_c = st.selectbox("Select Client", [x['client_name'] for x in cls])
-            c_det = next(x for x in cls if x['client_name'] == sel_c)
-            
-            # ADVANCED MATCHING LOGIC (Budget + Type)
-            matches = supabase.table("inventory").select("*")\
-                .eq("property_type", c_det['demand_type'])\
-                .lte("price", c_det['max_budget'])\
-                .execute().data
-            
-            if matches:
-                st.write(f"Found {len(matches)} matches for {sel_c}:")
-                for m in matches:
+    with tab2:
+        search = st.text_input("🔍 Search Properties (Area, Type, Owner)")
+        data = supabase.table("inventory").select("*").execute().data
+        if data:
+            for p in data:
+                if not search or search.lower() in str(p).lower():
                     with st.container(border=True):
-                        st.write(f"🏠 **{m['area']}** ({m['price']:,} PKR)")
-                        # WhatsApp One-Click Share
-                        msg = f"Salam {c_det['client_name']}, hamare pas {m['area']} mein aik zabardast option hai. Price: {m['price']:,} PKR."
-                        wa_url = f"https://wa.me/{c_det['client_contact']}?text={quote(msg)}"
-                        st.link_button("💬 Share to WhatsApp", wa_url)
+                        col_text, col_btn = st.columns([4, 1])
+                        col_text.subheader(f"{p['area']} - {p['price']:,} PKR")
+                        col_text.write(f"**{p['property_type']}** | {p['marla']} Marla {p['sub_type']} | Owner: {p['owner_name']}")
+                        if p['location_link']: col_text.link_button("📍 Location", p['location_link'])
+                        
+                        if col_btn.button("🗑️ Delete", key=f"del_{p['id']}"):
+                            supabase.table("inventory").delete().eq("id", p['id']).execute()
+                            st.rerun()
 
-# --- 7. ACCOUNTS LEDGER (Admin Only) ---
-elif nav == "💰 Accounts Ledger":
-    st.title("Finance & Commissions")
-    if st.session_state.role != "Manager":
-        st.error("Access Restricted! Sirf Managers ye dekh sakte hain.")
+# --- 6. MODULE: CLIENT CRM ---
+elif menu == "👥 Client CRM":
+    st.title("Lead Management")
+    with st.form("client_form", clear_on_submit=True):
+        c1, c2 = st.columns(2)
+        c_name = c1.text_input("Client Name")
+        c_phone = c2.text_input("WhatsApp (e.g. 923001234567)")
+        
+        c3, c4, c5 = st.columns(3)
+        c_budget = c3.number_input("Max Budget", min_value=0)
+        c_req = c4.selectbox("Requirement", ["Sale", "Rent"])
+        c_status = c5.selectbox("Priority", ["Hot 🔥", "Warm", "Cold"])
+        
+        if st.form_submit_button("Add to Pipeline"):
+            supabase.table("clients").insert({
+                "client_name": c_name, "client_contact": c_phone, 
+                "max_budget": c_budget, "demand_type": c_req, "status": c_status
+            }).execute()
+            st.success("Client registered successfully!")
+
+# --- 7. MODULE: SMART MATCHER ---
+elif menu == "🎯 Smart Matcher":
+    st.title("AI-Powered Deal Matcher")
+    clients = supabase.table("clients").select("*").execute().data
+    if clients:
+        target_client = st.selectbox("Select a Client to Match", [x['client_name'] for x in clients])
+        c = next(item for item in clients if item['client_name'] == target_client)
+        
+        st.info(f"Targeting: {c['demand_type']} options within {c['max_budget']:,} PKR")
+        
+        # Logic: Match by type and budget
+        matches = supabase.table("inventory").select("*").eq("property_type", c['demand_type']).lte("price", c['max_budget']).execute().data
+        
+        if matches:
+            st.success(f"Found {len(matches)} matches for {target_client}!")
+            for m in matches:
+                with st.container(border=True):
+                    st.write(f"🏠 **{m['area']}** - {m['price']:,} PKR ({m['marla']} Marla)")
+                    msg = f"Salam {c['client_name']}, hamare paas {m['area']} mein aik zabardast option hai aapke budget ke mutabiq. Price: {m['price']:,} PKR."
+                    wa_url = f"https://wa.me/{c['client_contact']}?text={quote(msg)}"
+                    st.link_button("💬 Share Details via WhatsApp", wa_url)
+        else:
+            st.warning("No properties matching this client's criteria.")
+
+# --- 8. MODULE: FINANCIAL LEDGER ---
+elif menu == "💰 Financial Ledger":
+    st.title("Accounts & Commissions")
+    if st.session_state.role != "Admin":
+        st.error("Access Restricted! Sirf Admin accounts dekh sakta hai.")
     else:
-        with st.form("acc_form"):
-            atyp = st.selectbox("Type", ["Income", "Expense"])
-            acat = st.selectbox("Category", ["Commission", "Petrol", "Marketing", "Tea/Food"])
-            aamt = st.number_input("Amount", min_value=0)
-            adesc = st.text_input("Details")
-            if st.form_submit_button("Save Record"):
-                supabase.table("accounts").insert({"type": atyp, "category": acat, "amount": aamt, "description": adesc}).execute()
-                st.success("Account updated!")
+        with st.form("acc_form", clear_on_submit=True):
+            a1, a2, a3 = st.columns(3)
+            a_type = a1.selectbox("Type", ["Income", "Expense"])
+            a_cat = a2.selectbox("Category", ["Commission", "Marketing", "Office Rent", "Salaries", "Misc"])
+            a_amt = a3.number_input("Amount (PKR)", min_value=0)
+            a_desc = st.text_input("Description / Deal Details")
+            if st.form_submit_button("Save Transaction"):
+                supabase.table("accounts").insert({"type": a_type, "category": a_cat, "amount": a_amt, "description": a_desc}).execute()
+                st.success("Account Ledger Updated!")
