@@ -1,6 +1,7 @@
 import streamlit as st
 from supabase import create_client
 import pandas as pd
+from urllib.parse import quote # For WhatsApp message encoding
 
 # --- UI SETTINGS ---
 st.set_page_config(page_title="Pindi-Isloo Realty CRM Pro", layout="wide", page_icon="📈")
@@ -12,6 +13,7 @@ st.markdown("""
     .stTabs [data-baseweb="tab-list"] { gap: 24px; }
     .stTabs [data-baseweb="tab"] { height: 50px; white-space: pre-wrap; background-color: #f8f9fa; border-radius: 5px; padding: 10px; }
     .stTabs [aria-selected="true"] { background-color: #007bff !important; color: white !important; }
+    div[data-testid="stExpander"] { border: 1px solid #007bff; border-radius: 10px; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -40,9 +42,15 @@ if not st.session_state.auth:
 
 # --- SIDEBAR NAVIGATION ---
 with st.sidebar:
-    st.header("🏢 Estate Pro v3.0")
+    st.header("🏢 Estate Pro v4.0")
     st.write(f"User: **{st.session_state.user.title()}**")
-    nav = st.radio("MAIN MENU", ["📊 Performance Dashboard", "🏠 Inventory Engine", "👥 Client CRM & Matching", "🔍 Advanced Search"])
+    nav = st.sidebar.radio("MAIN MENU", [
+        "📊 Performance Dashboard", 
+        "🏠 Inventory Engine", 
+        "👥 Client CRM & Matching", 
+        "🔍 Advanced Search",
+        "💰 Financial Ledger" # New Advance Feature
+    ])
     if st.button("Logout"):
         st.session_state.auth = False
         st.rerun()
@@ -104,14 +112,21 @@ elif nav == "🏠 Inventory Engine":
                 supabase.table("inventory").insert({
                     "added_by": st.session_state.user, "property_category": cat, "property_type": dtype,
                     "sub_type": sub, "area": area, "price": price, "beds": beds, "marla": marla,
-                    "gas": gas, "water": water, "electricity": elec, "owner_name": oname, "owner_contact": ocont
+                    "gas": gas, "water": water, "electricity": elec, "owner_name": oname, "owner_contact": ocont,
+                    "status": "Available" # Auto status
                 }).execute()
                 st.success("Property Added!")
 
     with tab_view:
         inv_all = supabase.table("inventory").select("*").order("created_at", desc=True).execute().data
         if inv_all:
-            st.dataframe(pd.DataFrame(inv_all), use_container_width=True)
+            # Advance Status Update Integration
+            for p in inv_all:
+                with st.expander(f"📍 {p['area']} - {p['price']:,} PKR ({p['status']})"):
+                    st.write(f"Owner: {p['owner_name']} | Contact: {p['owner_contact']}")
+                    if st.button("Mark as SOLD", key=f"sold_{p['id']}"):
+                        supabase.table("inventory").update({"status": "Sold"}).eq("id", p['id']).execute()
+                        st.rerun()
 
 # --- 3. CLIENT CRM & SMART MATCH ---
 elif nav == "👥 Client CRM & Matching":
@@ -121,7 +136,7 @@ elif nav == "👥 Client CRM & Matching":
     with tab_c1:
         with st.form("client_form", clear_on_submit=True):
             c_name = st.text_input("Client Name")
-            c_cont = st.text_input("Client Phone")
+            c_cont = st.text_input("Client Phone (92300XXXXXXX)")
             c_type = st.selectbox("Looking for", ["Rent", "Sale"])
             c_min = st.number_input("Min Budget (PKR)", 0)
             c_max = st.number_input("Max Budget (PKR)", 0)
@@ -141,13 +156,13 @@ elif nav == "👥 Client CRM & Matching":
             selected_client = st.selectbox("Select Client to Match", [x['client_name'] for x in clients])
             cl_data = next(x for x in clients if x['client_name'] == selected_client)
             
-            st.info(f"Finding properties for {selected_client} (Budget: {cl_data['max_budget']:,} PKR)")
+            st.info(f"Targeting: {cl_data['demand_type']} within {cl_data['max_budget']:,} PKR")
             
-            # Match Logic
             matches = supabase.table("inventory").select("*")\
                 .eq("property_type", cl_data['demand_type'])\
                 .lte("price", cl_data['max_budget'])\
                 .gte("price", cl_data['min_budget'])\
+                .eq("status", "Available")\
                 .execute().data
             
             if matches:
@@ -157,10 +172,44 @@ elif nav == "👥 Client CRM & Matching":
                         with col_m1:
                             st.subheader(f"🏠 {m['area']} - {m['price']:,} PKR")
                             st.write(f"**Specs:** {m['beds']} Beds | {m['marla']} Marla | {m['sub_type']}")
-                            st.write(f"**Utilities:** Gas: {m['gas']} | Water: {m['water']}")
                         with col_m2:
-                            st.write("**Owner Info**")
-                            st.write(m['owner_name'])
-                            st.write(m['owner_contact'])
+                            # ADVANCE: WhatsApp Link Generation
+                            wa_msg = f"Salam {selected_client}, hamare pas {m['area']} mein aik option hai. {m['marla']} Marla {m['sub_type']}, Demand: {m['price']:,} PKR. Contact us for visit."
+                            wa_url = f"https://wa.me/{cl_data['client_contact']}?text={quote(wa_msg)}"
+                            st.link_button("📲 Send to WhatsApp", wa_url)
             else:
-                st.warning("No matches found in inventory for this client yet.")
+                st.warning("No matches found.")
+
+# --- 4. ADVANCED SEARCH ---
+elif nav == "🔍 Advanced Search":
+    st.title("Enterprise Filtering Engine")
+    with st.container(border=True):
+        f1, f2, f3 = st.columns(3)
+        s_area = f1.text_input("Filter by Area")
+        s_type = f2.selectbox("Filter by Type", ["All", "Rent", "Sale"])
+        s_max = f3.number_input("Max Budget", value=100000000)
+        
+        query = supabase.table("inventory").select("*").lte("price", s_max)
+        if s_type != "All": query = query.eq("property_type", s_type)
+        if s_area: query = query.ilike("area", f"%{s_area}%")
+        
+        results = query.execute().data
+        if results:
+            st.dataframe(pd.DataFrame(results), use_container_width=True)
+
+# --- 5. FINANCIAL LEDGER (Admin Feature) ---
+elif nav == "💰 Financial Ledger":
+    st.title("Office Finance Management")
+    if st.session_state.user not in ["sawer khan", "tariq"]:
+        st.error("Restricted Access!")
+    else:
+        with st.form("finance_form"):
+            f_col1, f_col2 = st.columns(2)
+            f_type = f_col1.selectbox("Entry Type", ["Income (Commission)", "Expense (Marketing/Rent)"])
+            f_amt = f_col2.number_input("Amount (PKR)", min_value=0)
+            f_desc = st.text_area("Transaction Details")
+            if st.form_submit_button("Record Transaction"):
+                supabase.table("accounts").insert({
+                    "type": f_type, "amount": f_amt, "details": f_desc, "added_by": st.session_state.user
+                }).execute()
+                st.success("Ledger Updated!")
