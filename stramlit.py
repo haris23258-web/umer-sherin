@@ -1,173 +1,160 @@
 import streamlit as st
 from supabase import create_client
 import pandas as pd
+from datetime import datetime
 
-# --- CONFIGURATION ---
-st.set_page_config(page_title="Pindi-Isloo Real Estate ERP", layout="wide")
+# --- SETTINGS & THEME ---
+st.set_page_config(page_title="Pindi-Isloo Realty Pro ERP", layout="wide", page_icon="🏢")
 
-# --- DATABASE CONNECTION ---
+# Custom CSS for Professional Look
+st.markdown("""
+    <style>
+    .main { background-color: #f0f2f6; }
+    .stMetric { background-color: #ffffff; padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); border-left: 5px solid #007bff; }
+    .stButton>button { border-radius: 5px; height: 3em; font-weight: bold; transition: 0.3s; }
+    .stButton>button:hover { background-color: #007bff; color: white; border: none; }
+    .css-1kyx92n { background-color: #1e293b; } /* Sidebar color */
+    </style>
+    """, unsafe_allow_html=True)
+
+# --- DB CONNECTION ---
 try:
-    url = st.secrets["SUPABASE_URL"]
-    key = st.secrets["SUPABASE_KEY"]
-    supabase = create_client(url, key)
-except Exception as e:
-    st.error("Secrets missing! Add SUPABASE_URL and SUPABASE_KEY in Streamlit settings.")
+    supabase = create_client(st.secrets["SUPABASE_URL"], st.secrets["SUPABASE_KEY"])
+except:
+    st.error("Database connection failed. Check your Secrets.")
     st.stop()
 
-# --- AUTHENTICATION ---
-ADMIN_USERS = {
-    "sawer khan": "sawer123",
-    "tariq": "tariq456",
-    "admin3": "pindi786"
-}
+# --- AUTH SYSTEM ---
+ADMINS = {"sawer khan": "sawer123", "tariq": "tariq456", "admin3": "pindi786"}
 
-if "authenticated" not in st.session_state:
-    st.session_state["authenticated"] = False
+if "auth" not in st.session_state: st.session_state.auth = False
 
-if not st.session_state["authenticated"]:
-    st.title("🔐 Twin Cities Estate Login")
-    with st.form("login_form"):
-        user = st.text_input("Username").lower().strip()
-        pwd = st.text_input("Password", type="password")
-        if st.form_submit_button("Login"):
-            if user in ADMIN_USERS and ADMIN_USERS[user] == pwd:
-                st.session_state["authenticated"] = True
-                st.session_state["user"] = user
-                st.rerun()
-            else:
-                st.error("Invalid Username or Password")
+if not st.session_state.auth:
+    c1, c2, c3 = st.columns([1, 2, 1])
+    with c2:
+        st.image("https://cdn-icons-png.flaticon.com/512/609/609803.png", width=100)
+        st.title("Realty Pro ERP Login")
+        with st.container(border=True):
+            u = st.text_input("Username").lower().strip()
+            p = st.text_input("Password", type="password")
+            if st.button("Access Dashboard", use_container_width=True):
+                if u in ADMINS and ADMINS[u] == p:
+                    st.session_state.auth, st.session_state.user = True, u
+                    st.rerun()
+                else: st.error("Access Denied.")
     st.stop()
 
-# --- APP LOGIC ---
-st.sidebar.title(f"🏢 Admin: {st.session_state['user'].title()}")
-menu = ["📊 Dashboard", "🏠 Add Property", "👥 Clients & Matching", "📋 Inventory Manager"]
-choice = st.sidebar.radio("Main Menu", menu)
+# --- NAVIGATION ---
+with st.sidebar:
+    st.title("🏢 Realty Pro v2.0")
+    st.write(f"Welcome, **{st.session_state.user.title()}**")
+    menu = st.radio("MAIN NAVIGATION", ["📊 Performance Dashboard", "🏗️ Listing Engine", "🔍 Advanced Search", "👥 CRM & Matches", "⚙️ Admin Settings"])
+    if st.button("🔒 Logout"):
+        st.session_state.auth = False
+        st.rerun()
 
-if st.sidebar.button("Logout"):
-    st.session_state["authenticated"] = False
-    st.rerun()
+# --- 1. DASHBOARD (PRO) ---
+if menu == "📊 Performance Dashboard":
+    st.title("Real Estate Analytics")
+    
+    inv = supabase.table("inventory").select("*").execute().data
+    df = pd.DataFrame(inv) if inv else pd.DataFrame()
 
-# --- 4. DASHBOARD ---
-if choice == "📊 Dashboard":
-    st.title("📈 Real Estate Analytics")
+    # High-Level Metrics
+    m1, m2, m3, m4 = st.columns(4)
+    if not df.empty:
+        m1.metric("Total Inventory", len(df))
+        m2.metric("Available for Rent", len(df[df['property_type']=='Rent']))
+        m3.metric("Available for Sale", len(df[df['property_type']=='Sale']))
+        m4.metric("Active Deals", len(df[df['status']!='Available']))
     
-    # Data fetch for reporting
-    inv_data = supabase.table("inventory").select("*").execute().data
-    cli_data = supabase.table("clients").select("*").execute().data
-    
-    df_inv = pd.DataFrame(inv_data) if inv_data else pd.DataFrame()
-    
-    col1, col2, col3, col4 = st.columns(4)
-    col1.metric("Total Listings", len(inv_data) if inv_data else 0)
-    col2.metric("Active Clients", len(cli_data) if cli_data else 0)
-    
-    if not df_inv.empty:
-        col3.metric("Available Rent", len(df_inv[(df_inv['property_type'] == 'Rent') & (df_inv['status'] == 'Available')]))
-        col4.metric("Available Sale", len(df_inv[(df_inv['property_type'] == 'Sale') & (df_inv['status'] == 'Available')]))
-
     st.divider()
-    st.subheader("Quick View")
-    if not df_inv.empty:
-        st.write("Recent Activity in Pindi/Islamabad Markets:")
-        st.dataframe(df_inv[['area', 'price', 'property_type', 'status']].tail(5), use_container_width=True)
+    
+    c1, c2 = st.columns(2)
+    with c1:
+        st.subheader("📍 Hot Locations (Inventory Density)")
+        if not df.empty:
+            st.bar_chart(df['area'].value_counts())
+    with c2:
+        st.subheader("💰 Market Valuation")
+        if not df.empty:
+            st.write("Average Demand by Property Type")
+            st.dataframe(df.groupby('sub_type')['price'].mean().map('{:,.0f} PKR'.format), use_container_width=True)
 
-# --- 5. ADD PROPERTY ---
-elif choice == "🏠 Add Property":
-    st.title("📝 Add New Listing")
-    with st.form("entry_form", clear_on_submit=True):
-        c1, c2 = st.columns(2)
-        p_type = c1.selectbox("Deal Type", ["Rent", "Sale"])
-        area = c2.text_input("Specific Area (e.g., G-13/4, Bahria Phase 8)")
-        
-        c3, c4, c5 = st.columns(3)
-        price = c3.number_input("Demand (PKR)", min_value=0, step=5000)
-        beds = c4.number_input("Beds", min_value=0, max_value=20)
-        marla = c5.number_input("Size (Marla/Kanal)", min_value=0.1)
-        
-        portion = st.selectbox("Portion/Type", ["Full House", "Upper Portion", "Lower Portion", "Flat", "Basement", "Room", "Office"])
-        
-        st.subheader("⚡ Utilities Information")
-        u1, u2, u3 = st.columns(3)
-        gas = u1.selectbox("Gas", ["No Gas", "Available (Separate)", "Available (Combined)"])
-        water = u2.selectbox("Water", ["Boring Only", "Govt Supply", "Supply + Boring", "Tanker Only"])
-        elec = u3.selectbox("Electricity", ["Separate Meter", "Combined Meter", "Solar System"])
-        
-        st.subheader("🔑 Confidential Owner Info")
-        o_name = st.text_input("Owner Name")
-        o_phone = st.text_input("Owner Contact (WhatsApp/Call)")
-        
-        if st.form_submit_button("Submit to Database"):
-            new_data = {
-                "added_by": st.session_state["user"],
-                "property_type": p_type, "area": area, "price": price,
-                "beds": beds, "marla": marla, "portion": portion,
-                "gas": gas, "water": water, "electricity": elec,
-                "owner_name": o_name, "owner_contact": o_phone, "status": "Available"
+# --- 2. LISTING ENGINE (DETAILED FORM) ---
+elif menu == "🏗️ Listing Engine":
+    st.title("Add New Premium Property")
+    with st.form("heavy_form", clear_on_submit=True):
+        col1, col2, col3 = st.columns(3)
+        cat = col1.selectbox("Category", ["Residential", "Commercial", "Industrial", "Plot"])
+        deal = col2.selectbox("Deal Type", ["Sale", "Rent"])
+        sub = col3.selectbox("Sub-Type", ["House", "Flat/Apartment", "Shop", "Office", "Warehouse", "Penthouse", "Plot File", "Plaza"])
+
+        col4, col5 = st.columns([2, 1])
+        area = col4.text_input("Location / Sector (e.g. DHA Phase 2, Sector F-6)")
+        marla = col5.number_input("Size (Marla/Kanal)", min_value=0.1)
+
+        addr = st.text_area("Full Address / Internal Plot Number")
+
+        col6, col7, col8 = st.columns(3)
+        price = col6.number_input("Asking Price (PKR)", min_value=0, step=100000)
+        beds = col7.number_input("Bedrooms", 0, 20)
+        baths = col8.number_input("Bathrooms", 0, 20)
+
+        st.subheader("🛠️ Technical Utilities")
+        u1, u2, u3, u4 = st.columns(4)
+        gas = u1.selectbox("Gas", ["Separate Meter", "Combined Meter", "No Gas"])
+        water = u2.selectbox("Water", ["Boring", "Govt Supply", "Supply+Boring", "Tanker"])
+        elec = u3.selectbox("Electricity", ["Separate", "Combined", "3-Phase", "Solar Installed"])
+        portion = u4.selectbox("Portion", ["Full", "Ground", "First", "Second", "Basement"])
+
+        st.subheader("✨ Premium Amenities")
+        amenities = st.multiselect("Select Features", ["Car Parking", "CCTV Security", "Corner Plot", "Park Facing", "Main Blvd", "Basement", "Lift/Elevator", "Servant Quarter"])
+
+        st.subheader("👤 Owner / Source Data")
+        o1, o2 = st.columns(2)
+        oname = o1.text_input("Owner Name")
+        ocont = o2.text_input("Owner Contact (WhatsApp/Call)")
+
+        if st.form_submit_button("🚀 PUBLISH LISTING"):
+            data = {
+                "added_by": st.session_state.user, "property_category": cat, "property_type": deal,
+                "sub_type": sub, "area": area, "address": addr, "price": price, "marla": marla,
+                "beds": beds, "baths": baths, "gas": gas, "water": water, "electricity": elec,
+                "portion": portion, "amenities": amenities, "owner_name": oname, "owner_contact": ocont
             }
-            supabase.table("inventory").insert(new_data).execute()
-            st.success(f"Property in {area} has been successfully added!")
+            supabase.table("inventory").insert(data).execute()
+            st.balloons()
+            st.success("Listing is now Live!")
 
-# --- 6. CLIENTS & MATCHING ---
-elif choice == "👥 Clients & Matching":
-    st.title("🤝 Client Requirements & Smart Match")
-    t1, t2 = st.tabs(["Register Client", "Run Matching Algorithm"])
+# --- 3. ADVANCED SEARCH & MANAGER ---
+elif menu == "🔍 Advanced Search":
+    st.title("Search & Manage Records")
     
-    with t1:
-        with st.form("cli_form"):
-            name = st.text_input("Client Name")
-            phone = st.text_input("Phone Number")
-            req = st.selectbox("Looking for", ["Rent", "Sale"])
-            budget = st.number_input("Max Budget", min_value=0)
-            pref = st.text_input("Preferred Areas")
-            if st.form_submit_button("Save Requirement"):
-                supabase.table("clients").insert({
-                    "client_name": name, "phone_number": phone, 
-                    "requirement_type": req, "budget_max": budget, "area_preference": pref
-                }).execute()
-                st.success("Client requirement saved!")
+    # Advanced Filters
+    with st.expander("🛠️ Advanced Filters", expanded=True):
+        f1, f2, f3, f4 = st.columns(4)
+        f_cat = f1.multiselect("Category", ["Residential", "Commercial", "Industrial"])
+        f_deal = f2.selectbox("Deal", ["All", "Sale", "Rent"])
+        f_min, f_max = f3.slider("Price Range (Mln)", 0, 500, (0, 500))
+        f_area = f4.text_input("Search Area (DHA, Bahria...)")
 
-    with t2:
-        clients = supabase.table("clients").select("*").execute().data
-        if clients:
-            target = st.selectbox("Select Client to Match", [c['client_name'] for c in clients])
-            c_info = next(i for i in clients if i['client_name'] == target)
-            
-            # Logic: Match Type and Price <= Budget
-            matches = supabase.table("inventory").select("*")\
-                .eq("property_type", c_info['requirement_type'])\
-                .lte("price", c_info['budget_max'])\
-                .eq("status", "Available")\
-                .execute().data
-            
-            if matches:
-                st.write(f"Found {len(matches)} options for {target}:")
-                for m in matches:
-                    with st.expander(f"📍 {m['area']} - {m['price']:,} PKR"):
-                        st.write(f"**Contact:** {m['owner_contact']} ({m['owner_name']})")
-                        st.write(f"**Utilities:** Gas: {m['gas']} | Water: {m['water']} | Elec: {m['electricity']}")
-            else:
-                st.warning("No matches found within budget.")
-
-# --- 7. VIEW INVENTORY ---
-elif choice == "📋 Inventory Manager":
-    st.title("📂 Property Records")
-    search = st.text_input("🔍 Search by Area, Owner or Portion")
-    
-    inv = supabase.table("inventory").select("*").order("created_at", desc=True).execute().data
+    inv = supabase.table("inventory").select("*").execute().data
     if inv:
         for p in inv:
-            if search.lower() in p['area'].lower() or search.lower() in p['owner_name'].lower():
-                with st.expander(f"🏠 {p['area']} | {p['property_type']} | {p['price']:,} PKR"):
-                    col_info, col_action = st.columns([3, 1])
-                    with col_info:
-                        st.write(f"**Owner:** {p['owner_name']} - {p['owner_contact']}")
-                        st.write(f"**Specs:** {p['beds']} Bed, {p['marla']} Marla, {p['portion']}")
-                        st.write(f"**Utilities:** 🔥 {p['gas']} | 💧 {p['water']} | ⚡ {p['electricity']}")
-                    with col_action:
-                        new_status = st.selectbox("Status", ["Available", "Sold", "Rented"], key=f"st_{p['id']}", index=["Available", "Sold", "Rented"].index(p['status']))
-                        if st.button("Update", key=f"up_{p['id']}"):
-                            supabase.table("inventory").update({"status": new_status}).eq("id", p['id']).execute()
-                            st.rerun()
-                        if st.button("🗑️ Delete", key=f"dl_{p['id']}"):
+            # Simple filtering logic
+            if (f_deal == "All" or p['property_type'] == f_deal) and (f_area.lower() in p['area'].lower()):
+                with st.container(border=True):
+                    c1, c2, c3 = st.columns([1, 2, 1])
+                    with c1:
+                        st.markdown(f"### {p['price']:,} PKR")
+                        st.caption(f"ID: {p['id']} | {p['property_type']}")
+                    with c2:
+                        st.write(f"📍 **{p['area']}** ({p['sub_type']})")
+                        st.write(f"📐 {p['marla']} Marla | 🛏️ {p['beds']} Beds | 🚿 {p['baths']} Baths")
+                        st.caption(f"Amenities: {', '.join(p['amenities']) if p['amenities'] else 'None'}")
+                    with c3:
+                        st.write(f"📞 {p['owner_contact']}")
+                        if st.button("Delete", key=f"del_{p['id']}"):
                             supabase.table("inventory").delete().eq("id", p['id']).execute()
                             st.rerun()
