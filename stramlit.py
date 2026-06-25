@@ -5,10 +5,10 @@ import re
 from datetime import datetime
 
 # -----------------------------
-# PAGE CONFIG
+# PAGE CONFIG (BRANDED)
 # -----------------------------
 st.set_page_config(
-    page_title="EstateFlow Pro",
+    page_title="DEEWARYN.COM - Portal",
     layout="wide",
     initial_sidebar_state="expanded"
 )
@@ -32,6 +32,15 @@ st.markdown("""
     border-left: 4px solid #0ea5e9;
     margin-bottom: 10px;
     box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+}
+.about-box {
+    background-color: #f1f5f9;
+    padding: 12px;
+    border-radius: 8px;
+    font-size: 13px;
+    color: #334155;
+    border: 1px solid #e2e8f0;
+    margin-top: 15px;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -74,7 +83,7 @@ if "authenticated" not in st.session_state:
     st.session_state.authenticated = False
 
 if not st.session_state.authenticated:
-    st.title("🔑 EstateFlow Pro Login")
+    st.title("🔑 DEEWARYN.COM - Staff Login")
     with st.container(border=True):
         user_id = st.text_input("User ID").lower().strip()
         user_pin = st.text_input("PIN", type="password")
@@ -89,13 +98,19 @@ if not st.session_state.authenticated:
     st.stop()
 
 # -----------------------------
-# SIDEBAR NAVIGATION
+# SIDEBAR NAVIGATION & BRANDING
 # -----------------------------
 if "current_nav" not in st.session_state:
     st.session_state.current_nav = "Dashboard"
 
 with st.sidebar:
-    st.markdown("### 🏢 EstateFlow Pro")
+    # Company Logo & Branding Implementation
+    try:
+        # Agar aapke paas local image file ho toh "logo.png" rakh dein, nahi toh ye placeholder text show karega
+        st.image("logo.png", width=150)
+    except:
+        st.markdown("<h2 style='color:#1e3a8a; margin-bottom:0;'>🏗️ DEEWARYN.COM</h2>", unsafe_allow_html=True)
+    
     st.write(f"👤 **{st.session_state.user.title()}** ({st.session_state.role})")
     st.divider()
     
@@ -118,6 +133,18 @@ with st.sidebar:
             st.rerun()
             
     st.divider()
+    
+    # About Company Section
+    st.markdown("""
+    <div class="about-box">
+        <b>🏢 DEEWARYN.COM</b><br>
+        👤 <b>CEO:</b> Sami Ul Allah<br>
+        📞 <b>Ph:</b> 0333-2002666<br>
+        ✉️ <b>Email:</b> deewary@gmail.com<br>
+        📍 Bostan Khan Road, Chaklala Scheme 3, Rawalpindi
+    </div>
+    """, unsafe_allow_html=True)
+    
     if st.button("🚪 Logout", use_container_width=True):
         st.session_state.authenticated = False
         st.rerun()
@@ -126,7 +153,7 @@ with st.sidebar:
 # 1. DASHBOARD MODULE
 # -----------------------------
 if st.session_state.current_nav == "Dashboard":
-    st.title("📊 Portal Overview & Staff Analytics")
+    st.title("📊 DEEWARYN.COM - Portal Overview")
     
     inventory, clients_data, accounts, logs, deals = [], [], [], [], []
     try:
@@ -219,7 +246,6 @@ elif st.session_state.current_nav == "Quick Entry":
                 if not area or not owner_name or not owner_contact: st.warning("Please fill required fields.")
                 else:
                     try:
-                        # Storing full specifications in dynamic remarks context to avoid DB scheme crash
                         utility_notes = f"[{beds} | Bijli: {elec_opt} | Gas: {gas_opt} | Pani: {water_opt}]"
                         supabase.table("inventory").insert({
                             "area": area, "price": rent_price, "marla": marla,
@@ -276,7 +302,7 @@ elif st.session_state.current_nav == "Quick Entry":
                     st.rerun()
 
 # -----------------------------
-# PROPERTIES MASTER DATABASE (TABLE VIEW WITH CONTROL BAR)
+# PROPERTIES MASTER DATABASE
 # -----------------------------
 elif st.session_state.current_nav == "Properties":
     st.title("🏡 Properties Master Database")
@@ -289,13 +315,11 @@ elif st.session_state.current_nav == "Properties":
             all_cols = ["id", "area", "marla", "property_type", "sub_type", "price", "status", "owner_name", "owner_contact", "visiting_time"]
             display_cols = [c for c in all_cols if c in df_inv.columns]
             
-            # Highlight function for complete grid visual representation
             def style_prop_row(row):
                 return ['background-color: #dcfce7; color: #166534; font-weight: bold;'] * len(row) if row.status in ["Rent Out", "Sold"] else [''] * len(row)
             
             st.dataframe(df_inv[display_cols].style.apply(style_prop_row, axis=1), use_container_width=True, hide_index=True)
             
-            # Clean Action Operations Panel below Grid table
             st.markdown("### 🛠️ Property Action Panel")
             with st.container(border=True):
                 ac1, ac2, ac3 = st.columns([4, 2, 2])
@@ -303,7 +327,6 @@ elif st.session_state.current_nav == "Properties":
                 selected_p_label = ac1.selectbox("Select Unit to Modify Status / Remove:", list(prop_options.keys()))
                 selected_p_id = prop_options[selected_p_label]
                 
-                # Dynamic matching target data lookup
                 current_unit = next((item for item in properties if item["id"] == selected_p_id), None)
                 
                 if current_unit and current_unit["status"] not in ["Rent Out", "Sold"]:
@@ -324,7 +347,7 @@ elif st.session_state.current_nav == "Properties":
     except Exception as e: st.error(f"Error: {e}")
 
 # -----------------------------
-# CLIENTS DATABASE (TABLE VIEW WITH INTERACTION INTERACTIONS)
+# CLIENTS DATABASE
 # -----------------------------
 elif st.session_state.current_nav == "Clients":
     st.title("👥 Registered Clients & Follow-up Tracking")
@@ -335,14 +358,12 @@ elif st.session_state.current_nav == "Clients":
         if clients:
             df_clients = pd.DataFrame(clients)
             
-            # Map required columns explicitly including last interaction notes
             all_client_cols = ["id", "client_name", "client_contact", "demand_type", "max_budget", "preferred_area", "status", "last_interaction"]
             display_cols = [c for c in all_client_cols if c in df_clients.columns]
             
             def style_client_row(row):
                 return ['background-color: #dcfce7; color: #166534; font-weight: bold;'] * len(row) if row.status == "House Found" else [''] * len(row)
             
-            # Main Table presentation containing the requested interactions data column directly
             st.dataframe(df_clients[display_cols].style.apply(style_client_row, axis=1), use_container_width=True, hide_index=True)
             
             st.markdown("### 🗣️ Client Follow-up Update Control Center")
@@ -354,7 +375,6 @@ elif st.session_state.current_nav == "Clients":
                 
                 current_client_record = next((x for x in clients if x["id"] == sel_client_id), None)
                 
-                # Note Logging Interaction Box
                 update_text_note = cc_col2.text_input("Last Time Kya Baat Hui Thi (Enter update note):", 
                                                       value=current_client_record.get('last_interaction', '') if current_client_record else "",
                                                       placeholder="e.g. He likes the Phase 5 house but budget issue.")
