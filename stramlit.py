@@ -96,7 +96,7 @@ def convert_df_to_pdf_html(df, title):
     return html
 
 # -----------------------------
-# LOGIN SYSTEM (CEO SAMI ADDED)
+# LOGIN SYSTEM
 # -----------------------------
 USER_DB = {
     "sami": {"role": "Viewer", "pin": "sami786"},       # CEO / Viewer Role
@@ -126,6 +126,14 @@ if not st.session_state.authenticated:
 if "local_deals" not in st.session_state:
     st.session_state.local_deals = []
 
+# Pre-fetch baseline data safely
+all_deals_list = []
+try:
+    db_deals = supabase.table("deals").select("*").execute().data
+    if db_deals: all_deals_list.extend(db_deals)
+except: pass
+all_deals_list.extend(st.session_state.local_deals)
+
 # -----------------------------
 # SIDEBAR NAVIGATION & BRANDING
 # -----------------------------
@@ -149,7 +157,7 @@ with st.sidebar:
     modules.extend([
         {"name": "Properties", "icon": "🏡"},
         {"name": "Clients", "icon": "👤"},
-        {"name": "Property Visits Log", "icon": "📋"}  # Naya Visit Record Module
+        {"name": "Property Visits Log", "icon": "📋"}
     ])
     
     if st.session_state.role != "Viewer":
@@ -185,13 +193,6 @@ with st.sidebar:
     if st.button("🚪 Logout", use_container_width=True):
         st.session_state.authenticated = False
         st.rerun()
-
-all_deals_list = []
-try:
-    db_deals = supabase.table("deals").select("*").execute().data
-    if db_deals: all_deals_list.extend(db_deals)
-except: pass
-all_deals_list.extend(st.session_state.local_deals)
 
 # -----------------------------
 # 1. DASHBOARD MODULE
@@ -277,7 +278,7 @@ elif st.session_state.current_nav == "Quick Entry":
 
         with tab2:
             st.subheader("Add Client Requirements")
-            with Form := st.form("quick_client_form", clear_on_submit=True):
+            with st.form("quick_client_form", clear_on_submit=True):
                 cc1, cc2 = st.columns(2)
                 client_name = cc1.text_input("Client Name")
                 client_contact = cc2.text_input("Client Contact")
@@ -305,7 +306,6 @@ elif st.session_state.current_nav == "Quick Entry":
 
         with tab3:
             st.subheader("🚗 Log a Property Visit with Client")
-            # Naya Form: Sawer Khan ya Tariq yahan apni visit enter karenge
             with st.form("visit_entry_form", clear_on_submit=True):
                 v_c1, v_c2 = st.columns(2)
                 v_client = v_c1.text_input("Client Name (Whom you showed the house)")
@@ -427,20 +427,18 @@ elif st.session_state.current_nav == "Clients":
     except Exception as e: st.error(f"Error handling system display: {e}")
 
 # -----------------------------
-# 5. PROPERTY VISITS LOG (NEW MODULE)
+# 5. PROPERTY VISITS LOG
 # -----------------------------
 elif st.session_state.current_nav == "Property Visits Log":
     st.title("📋 Staff Daily Property Visits Record Room")
     st.write("Yahan Sawer Khan aur Tariq ki un tamam visits ka record hai jo unho ne clients ko ghar dikhane ke liye ki hain.")
     
     try:
-        # Fetch data from property_visits table
         visits = supabase.table("property_visits").select("*").order("id", desc=True).execute().data
         if visits:
             df_visits = pd.DataFrame(visits)[["created_at", "agent_name", "client_name", "property_details", "feedback"]]
             df_visits.columns = ["Date & Time", "Agent Name", "Client Name", "Property Visited", "Client Feedback / Remarks"]
             
-            # Print PDF Report Button for whole view
             pdf_html = convert_df_to_pdf_html(df_visits, "Daily Property Visits Report")
             st.download_button(label="📥 Print PDF (Download Visits Report Log)", data=pdf_html, file_name="property_visits_report.html", mime="text/html")
             
