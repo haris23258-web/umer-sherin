@@ -4,78 +4,93 @@ import pandas as pd
 from urllib.parse import quote
 import re
 
-# -------------------------------
-# 1. CONFIG & THEME
-# -------------------------------
-st.set_page_config(page_title="Estate Pro v8.0 | Enterprise ERP", layout="wide")
+# -----------------------------
+# PAGE CONFIG
+# -----------------------------
+st.set_page_config(
+    page_title="EstateFlow Pro",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
 
+# -----------------------------
+# CUSTOM CSS
+# -----------------------------
 st.markdown("""
 <style>
 .stApp {
-    background-color: #f8fafc;
+    background-color: #f4f7fb;
 }
-.property-card {
+.block-container {
+    padding-top: 1.5rem;
+    padding-bottom: 2rem;
+}
+.main-card {
     background: white;
-    padding: 25px;
-    border-radius: 15px;
-    box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1);
-    border-top: 5px solid #1e40af;
-    margin-bottom: 20px;
+    padding: 20px;
+    border-radius: 18px;
+    box-shadow: 0 6px 18px rgba(0,0,0,0.06);
+    margin-bottom: 18px;
 }
-.metric-card {
-    background: #ffffff;
-    padding: 15px;
-    border-radius: 10px;
-    border: 1px solid #e2e8f0;
-    text-align: center;
+.small-title {
+    font-size: 18px;
+    font-weight: 700;
+    color: #1e3a8a;
+    margin-bottom: 10px;
 }
-.status-pill {
-    padding: 4px 12px;
-    border-radius: 9999px;
+.status-badge {
+    display: inline-block;
+    padding: 5px 12px;
+    border-radius: 20px;
     font-size: 12px;
-    font-weight: 600;
+    font-weight: 700;
 }
 .available {
     background: #dcfce7;
     color: #166534;
 }
-.sold {
-    background: #fee2e2;
-    color: #991b1b;
-}
 .hold {
     background: #fef3c7;
     color: #92400e;
 }
+.sold {
+    background: #fee2e2;
+    color: #991b1b;
+}
 </style>
 """, unsafe_allow_html=True)
 
-# -------------------------------
-# 2. DB CONNECTION
-# -------------------------------
+# -----------------------------
+# DATABASE CONNECTION
+# -----------------------------
 try:
     supabase = create_client(
         st.secrets["SUPABASE_URL"],
         st.secrets["SUPABASE_KEY"]
     )
 except Exception as e:
-    st.error(f"⚠️ Connection Failed: {e}")
+    st.error(f"Database connection failed: {e}")
     st.stop()
 
-# -------------------------------
-# 3. HELPERS
-# -------------------------------
+# -----------------------------
+# HELPERS
+# -----------------------------
 def clean_phone(phone):
-    if phone is None:
-        return ""
-    return re.sub(r"[^0-9]", "", str(phone))
+    return re.sub(r"[^0-9]", "", str(phone)) if phone else ""
 
-def safe_get(data, key, default=""):
-    return data[key] if key in data and data[key] is not None else default
+def safe_value(val, default=""):
+    return default if val is None else val
 
-# -------------------------------
-# 4. AUTH SYSTEM
-# -------------------------------
+def status_class(status):
+    if status == "Available":
+        return "available"
+    elif status == "Sold":
+        return "sold"
+    return "hold"
+
+# -----------------------------
+# LOGIN USERS
+# -----------------------------
 USER_DB = {
     "sawer khan": {"role": "Admin", "pin": "sawer123"},
     "tariq": {"role": "Admin", "pin": "tariq456"},
@@ -86,81 +101,134 @@ if "authenticated" not in st.session_state:
     st.session_state.authenticated = False
 
 if not st.session_state.authenticated:
-    st.title("🛡️ Enterprise Realty Gateway")
-    with st.container(border=True):
-        uid = st.text_input("User ID").lower().strip()
-        upin = st.text_input("Access PIN", type="password")
+    st.title("EstateFlow Pro Login")
 
-        if st.button("Enter System", use_container_width=True):
-            if uid in USER_DB and USER_DB[uid]["pin"] == upin:
+    with st.container(border=True):
+        user_id = st.text_input("User ID").lower().strip()
+        user_pin = st.text_input("PIN", type="password")
+
+        if st.button("Login", use_container_width=True):
+            if user_id in USER_DB and USER_DB[user_id]["pin"] == user_pin:
                 st.session_state.authenticated = True
-                st.session_state.user = uid
-                st.session_state.role = USER_DB[uid]["role"]
+                st.session_state.user = user_id
+                st.session_state.role = USER_DB[user_id]["role"]
                 st.rerun()
             else:
-                st.error("Access Denied")
+                st.error("Invalid login details")
     st.stop()
 
-# -------------------------------
-# 5. SIDEBAR
-# -------------------------------
+# -----------------------------
+# SIDEBAR
+# -----------------------------
 with st.sidebar:
-    st.title("🏗️ Estate Pro v8")
-    st.write(f"Logged in: **{st.session_state.user.upper()}**")
-    st.caption(f"Access Level: {st.session_state.role}")
+    st.title("EstateFlow Pro")
+    st.write(f"**User:** {st.session_state.user.title()}")
+    st.caption(f"Role: {st.session_state.role}")
     st.divider()
 
-    nav = st.radio("ERP MODULES", [
-        "🟢 Simple Entry",
-        "📊 Analytics Dashboard",
-        "🏠 Inventory Engine",
-        "🎯 AI Deal Matcher",
-        "💰 Finance & Payroll",
-        "📑 Activity Logs"
+    nav = st.radio("Select Module", [
+        "Dashboard",
+        "Quick Entry",
+        "Properties",
+        "Clients",
+        "Deal Matcher",
+        "Finance",
+        "Activity Logs"
     ])
 
-    if st.button("Logout"):
+    st.divider()
+
+    if st.button("Logout", use_container_width=True):
         st.session_state.authenticated = False
         st.rerun()
 
-# -------------------------------
-# 6. SIMPLE ENTRY
-# -------------------------------
-if nav == "🟢 Simple Entry":
-    st.title("Simple Property & Client Entry")
+# -----------------------------
+# DASHBOARD
+# -----------------------------
+if nav == "Dashboard":
+    st.title("Dashboard")
 
-    tab1, tab2 = st.tabs(["🏠 House for Rent", "👤 Client List"])
+    try:
+        inventory = supabase.table("inventory").select("*").execute().data
+        clients = supabase.table("clients").select("*").execute().data
+        accounts = supabase.table("accounts").select("*").execute().data
+    except Exception as e:
+        st.error(f"Failed to load dashboard data: {e}")
+        st.stop()
 
-    # --- House for Rent ---
+    total_inventory = len(inventory) if inventory else 0
+    total_clients = len(clients) if clients else 0
+
+    total_revenue = 0
+    if accounts:
+        df_acc = pd.DataFrame(accounts)
+        if "type" in df_acc.columns and "amount" in df_acc.columns:
+            total_revenue = df_acc[df_acc["type"] == "Income"]["amount"].sum()
+
+    col1, col2, col3 = st.columns(3)
+    col1.metric("Total Properties", total_inventory)
+    col2.metric("Total Clients", total_clients)
+
+    if st.session_state.role == "Admin":
+        col3.metric("Revenue", f"{int(total_revenue):,} PKR")
+
+    st.markdown("---")
+
+    if inventory:
+        df_inv = pd.DataFrame(inventory)
+
+        c1, c2 = st.columns(2)
+
+        with c1:
+            if "area" in df_inv.columns:
+                st.subheader("Properties by Area")
+                st.bar_chart(df_inv["area"].value_counts())
+
+        with c2:
+            if "property_type" in df_inv.columns:
+                st.subheader("Sale vs Rent")
+                st.bar_chart(df_inv["property_type"].value_counts())
+    else:
+        st.info("No inventory data found.")
+
+# -----------------------------
+# QUICK ENTRY
+# -----------------------------
+elif nav == "Quick Entry":
+    st.title("Quick Entry")
+
+    tab1, tab2 = st.tabs(["House for Rent", "Client Entry"])
+
+    # HOUSE FOR RENT
     with tab1:
         st.subheader("Add House for Rent")
 
-        with st.form("simple_rent_form", clear_on_submit=True):
+        with st.form("quick_rent_form", clear_on_submit=True):
             c1, c2, c3 = st.columns(3)
             area = c1.text_input("Area")
-            price = c2.number_input("Rent Price (PKR)", min_value=0, step=1000)
-            marla = c3.number_input("Size (Marla)", min_value=1.0, step=1.0)
+            marla = c2.number_input("Size (Marla)", min_value=1.0, step=1.0)
+            rent_price = c3.number_input("Rent Price", min_value=0, step=1000)
 
             c4, c5, c6 = st.columns(3)
-            sub_type = c4.selectbox("Category", ["House", "Flat", "Portion", "Room"])
+            category = c4.selectbox("Category", ["House", "Flat", "Portion", "Room"])
             status = c5.selectbox("Status", ["Available", "Hold"])
             owner_name = c6.text_input("Owner Name")
 
             owner_contact = st.text_input("Owner Contact")
 
-            submit_rent = st.form_submit_button("Save House for Rent")
+            save_rent = st.form_submit_button("Save Property")
 
-            if submit_rent:
+            if save_rent:
                 if not area or not owner_name or not owner_contact:
-                    st.warning("Please fill all required fields.")
+                    st.warning("Please fill required fields.")
                 else:
                     try:
                         supabase.table("inventory").insert({
                             "area": area,
-                            "price": price,
+                            "price": rent_price,
                             "marla": marla,
                             "property_type": "Rent",
-                            "sub_type": sub_type,
+                            "sub_type": category,
                             "status": status,
                             "owner_name": owner_name,
                             "owner_contact": owner_contact,
@@ -169,15 +237,15 @@ if nav == "🟢 Simple Entry":
 
                         supabase.table("activity_logs").insert({
                             "user": st.session_state.user,
-                            "action": f"Added Rent Property in {area}"
+                            "action": f"Added rent property in {area}"
                         }).execute()
 
-                        st.success("House for rent added successfully.")
+                        st.success("Rent property added successfully.")
                     except Exception as e:
-                        st.error(f"Error saving property: {e}")
+                        st.error(f"Failed to save property: {e}")
 
         st.markdown("---")
-        st.subheader("House for Rent History")
+        st.subheader("Rent Property History")
 
         try:
             rent_history = supabase.table("inventory") \
@@ -188,34 +256,34 @@ if nav == "🟢 Simple Entry":
 
             if rent_history:
                 df_rent = pd.DataFrame(rent_history)
-                show_cols = [col for col in [
+                cols = [c for c in [
                     "id", "area", "marla", "sub_type", "price",
                     "status", "owner_name", "owner_contact", "added_by"
-                ] if col in df_rent.columns]
-                st.dataframe(df_rent[show_cols], use_container_width=True)
+                ] if c in df_rent.columns]
+                st.dataframe(df_rent[cols], use_container_width=True)
             else:
-                st.info("No rent property history found.")
+                st.info("No rent history found.")
         except Exception as e:
-            st.error(f"Error loading rent history: {e}")
+            st.error(f"Failed to load rent history: {e}")
 
-    # --- Client List ---
+    # CLIENT ENTRY
     with tab2:
-        st.subheader("Add Client Entry")
+        st.subheader("Add Client")
 
-        with st.form("simple_client_form", clear_on_submit=True):
+        with st.form("quick_client_form", clear_on_submit=True):
             c1, c2 = st.columns(2)
             client_name = c1.text_input("Client Name")
             client_contact = c2.text_input("Client Contact")
 
             c3, c4 = st.columns(2)
             demand_type = c3.selectbox("Demand Type", ["Sale", "Rent"])
-            max_budget = c4.number_input("Max Budget (PKR)", min_value=0, step=1000)
+            max_budget = c4.number_input("Max Budget", min_value=0, step=1000)
 
-            submit_client = st.form_submit_button("Save Client")
+            save_client = st.form_submit_button("Save Client")
 
-            if submit_client:
+            if save_client:
                 if not client_name or not client_contact:
-                    st.warning("Please fill all required fields.")
+                    st.warning("Please fill required fields.")
                 else:
                     try:
                         supabase.table("clients").insert({
@@ -227,12 +295,12 @@ if nav == "🟢 Simple Entry":
 
                         supabase.table("activity_logs").insert({
                             "user": st.session_state.user,
-                            "action": f"Added Client {client_name}"
+                            "action": f"Added client {client_name}"
                         }).execute()
 
                         st.success("Client added successfully.")
                     except Exception as e:
-                        st.error(f"Error saving client: {e}")
+                        st.error(f"Failed to save client: {e}")
 
         st.markdown("---")
         st.subheader("Client History")
@@ -245,253 +313,206 @@ if nav == "🟢 Simple Entry":
 
             if client_history:
                 df_clients = pd.DataFrame(client_history)
-                show_cols = [col for col in [
+                cols = [c for c in [
                     "id", "client_name", "client_contact",
                     "demand_type", "max_budget"
-                ] if col in df_clients.columns]
-                st.dataframe(df_clients[show_cols], use_container_width=True)
+                ] if c in df_clients.columns]
+                st.dataframe(df_clients[cols], use_container_width=True)
             else:
                 st.info("No client history found.")
         except Exception as e:
-            st.error(f"Error loading client history: {e}")
+            st.error(f"Failed to load client history: {e}")
 
-# -------------------------------
-# 7. ANALYTICS DASHBOARD
-# -------------------------------
-elif nav == "📊 Analytics Dashboard":
-    st.title("Market Intelligence Dashboard")
+# -----------------------------
+# PROPERTIES
+# -----------------------------
+elif nav == "Properties":
+    st.title("All Properties")
+
+    search = st.text_input("Search by Area")
 
     try:
-        inv = supabase.table("inventory").select("*").execute().data
-        cli = supabase.table("clients").select("*").execute().data
-        acc = supabase.table("accounts").select("*").execute().data
+        properties = supabase.table("inventory") \
+            .select("*") \
+            .ilike("area", f"%{search}%") \
+            .order("id", desc=True) \
+            .execute().data
+
+        if properties:
+            for p in properties:
+                s = safe_value(p.get("status"))
+                s_class = status_class(s)
+
+                st.markdown(f"""
+                <div class="main-card">
+                    <span class="status-badge {s_class}">{s}</span>
+                    <div class="small-title">📍 {safe_value(p.get("area"))}</div>
+                    <p><b>{safe_value(p.get("marla"))} Marla {safe_value(p.get("sub_type"))}</b></p>
+                    <p>Type: <b>{safe_value(p.get("property_type"))}</b></p>
+                    <p>Price: <b>{safe_value(p.get("price"), 0):,} PKR</b></p>
+                    <p>Owner: {safe_value(p.get("owner_name"))} | {safe_value(p.get("owner_contact"))}</p>
+                </div>
+                """, unsafe_allow_html=True)
+
+                if (
+                    st.session_state.role == "Admin"
+                    and p.get("status") == "Available"
+                    and p.get("id")
+                ):
+                    if st.button(f"Mark as Sold #{p['id']}"):
+                        supabase.table("inventory").update({
+                            "status": "Sold"
+                        }).eq("id", p["id"]).execute()
+                        st.rerun()
+        else:
+            st.info("No properties found.")
     except Exception as e:
-        st.error(f"Data fetch error: {e}")
-        st.stop()
+        st.error(f"Failed to load properties: {e}")
 
-    kpi1, kpi2, kpi3, kpi4 = st.columns(4)
+# -----------------------------
+# CLIENTS
+# -----------------------------
+elif nav == "Clients":
+    st.title("All Clients")
 
-    with kpi1:
-        st.metric("Live Inventory", len(inv) if inv else 0)
+    try:
+        clients = supabase.table("clients") \
+            .select("*") \
+            .order("id", desc=True) \
+            .execute().data
 
-    with kpi2:
-        st.metric("Hot Leads", len(cli) if cli else 0)
+        if clients:
+            df_clients = pd.DataFrame(clients)
+            cols = [c for c in [
+                "id", "client_name", "client_contact",
+                "demand_type", "max_budget"
+            ] if c in df_clients.columns]
+            st.dataframe(df_clients[cols], use_container_width=True)
+        else:
+            st.info("No clients found.")
+    except Exception as e:
+        st.error(f"Failed to load clients: {e}")
 
-    if st.session_state.role == "Admin" and acc:
-        df_acc = pd.DataFrame(acc)
-        if "type" in df_acc.columns and "amount" in df_acc.columns:
-            rev = df_acc[df_acc["type"] == "Income"]["amount"].sum()
-            with kpi3:
-                st.metric("Total Revenue", f"{rev:,} PKR")
-
-    st.divider()
-
-    c_left, c_right = st.columns(2)
-
-    if inv:
-        df_i = pd.DataFrame(inv)
-
-        with c_left:
-            if "area" in df_i.columns:
-                st.subheader("📍 Inventory by Location")
-                st.bar_chart(df_i["area"].value_counts())
-
-        with c_right:
-            if "property_type" in df_i.columns:
-                st.subheader("🏠 Type Distribution")
-                st.bar_chart(df_i["property_type"].value_counts())
-
-# -------------------------------
-# 8. INVENTORY ENGINE
-# -------------------------------
-elif nav == "🏠 Inventory Engine":
-    st.title("Property Bank")
-    t1, t2 = st.tabs(["➕ Add New Asset", "🔍 Browse Assets"])
-
-    with t1:
-        with st.form("add_prop", clear_on_submit=True):
-            col1, col2, col3 = st.columns(3)
-            area = col1.text_input("Area (e.g. DHA Phase 2)")
-            price = col2.number_input("Demand (PKR)", min_value=0)
-            m_size = col3.number_input("Size (Marla)", min_value=1.0, step=1.0)
-
-            col4, col5, col6 = st.columns(3)
-            p_type = col4.selectbox("Type", ["Sale", "Rent"])
-            p_cat = col5.selectbox("Category", ["House", "Plot", "Flat", "Commercial"])
-            status = col6.selectbox("Status", ["Available", "Hold"])
-
-            o_name = st.text_input("Owner Name")
-            o_phone = st.text_input("Owner Contact")
-
-            if st.form_submit_button("PUBLISH TO ERP"):
-                try:
-                    supabase.table("inventory").insert({
-                        "area": area,
-                        "price": price,
-                        "marla": m_size,
-                        "property_type": p_type,
-                        "sub_type": p_cat,
-                        "status": status,
-                        "owner_name": o_name,
-                        "owner_contact": o_phone,
-                        "added_by": st.session_state.user
-                    }).execute()
-
-                    supabase.table("activity_logs").insert({
-                        "user": st.session_state.user,
-                        "action": f"Added {m_size} Marla in {area}"
-                    }).execute()
-
-                    st.success("Property Synced Globally!")
-                except Exception as e:
-                    st.error(f"Error adding property: {e}")
-
-    with t2:
-        search = st.text_input("Search Location...")
-
-        try:
-            data = supabase.table("inventory") \
-                .select("*") \
-                .ilike("area", f"%{search}%") \
-                .execute().data
-
-            if data:
-                for p in data:
-                    status_value = safe_get(p, "status", "")
-                    if status_value == "Available":
-                        status_class = "available"
-                    elif status_value == "Sold":
-                        status_class = "sold"
-                    else:
-                        status_class = "hold"
-
-                    st.markdown(f"""
-                    <div class="property-card">
-                        <span class="status-pill {status_class}">{status_value}</span>
-                        <h3>📍 {safe_get(p, "area", "")}</h3>
-                        <p><b>{safe_get(p, "marla", "")} Marla {safe_get(p, "sub_type", "")}</b> for <b>{safe_get(p, "property_type", "")}</b></p>
-                        <h4 style="color:#1e40af;">{safe_get(p, "price", 0):,} PKR</h4>
-                        <hr>
-                        <p>👤 {safe_get(p, "owner_name", "")} | 📞 {safe_get(p, "owner_contact", "")}</p>
-                    </div>
-                    """, unsafe_allow_html=True)
-
-                    if (
-                        st.session_state.role == "Admin"
-                        and status_value == "Available"
-                        and "id" in p
-                    ):
-                        if st.button(f"Mark as Sold", key=f"sold_{p['id']}"):
-                            supabase.table("inventory").update({
-                                "status": "Sold"
-                            }).eq("id", p["id"]).execute()
-                            st.rerun()
-            else:
-                st.info("No property found.")
-        except Exception as e:
-            st.error(f"Error loading inventory: {e}")
-
-# -------------------------------
-# 9. AI DEAL MATCHER
-# -------------------------------
-elif nav == "🎯 AI Deal Matcher":
-    st.title("Smart Match & Auto-Alert")
+# -----------------------------
+# DEAL MATCHER
+# -----------------------------
+elif nav == "Deal Matcher":
+    st.title("Deal Matcher")
 
     try:
         clients = supabase.table("clients").select("*").execute().data
     except Exception as e:
-        st.error(f"Error loading clients: {e}")
+        st.error(f"Failed to load clients: {e}")
         st.stop()
 
     if clients:
-        client_names = [x["client_name"] for x in clients if "client_name" in x]
+        client_names = [c["client_name"] for c in clients if "client_name" in c]
 
         if client_names:
-            sel_c = st.selectbox("Select Target Client", client_names)
-            c = next((x for x in clients if x.get("client_name") == sel_c), None)
+            selected_client = st.selectbox("Select Client", client_names)
+            client = next((x for x in clients if x.get("client_name") == selected_client), None)
 
-            if c:
-                demand_type = c.get("demand_type")
-                max_budget = c.get("max_budget", 0)
+            if client:
+                demand_type = client.get("demand_type")
+                budget = client.get("max_budget", 0)
 
                 try:
-                    matches = supabase.table("inventory") \
+                    matched = supabase.table("inventory") \
                         .select("*") \
                         .eq("property_type", demand_type) \
-                        .lte("price", max_budget * 1.1) \
+                        .lte("price", budget * 1.1) \
                         .eq("status", "Available") \
                         .execute().data
-                except Exception as e:
-                    st.error(f"Error matching properties: {e}")
-                    st.stop()
 
-                if matches:
-                    for m in matches:
-                        score = 100
-                        if m.get("price", 0) > max_budget:
-                            score -= 15
+                    if matched:
+                        for m in matched:
+                            score = 100
+                            if m.get("price", 0) > budget:
+                                score -= 15
 
-                        with st.container(border=True):
-                            st.write(f"### Match Score: {score}%")
-                            st.progress(score / 100)
-                            st.write(f"🏠 **{safe_get(m, 'area', '')}** | Price: {safe_get(m, 'price', 0):,} PKR")
+                            st.markdown(f"""
+                            <div class="main-card">
+                                <div class="small-title">Match Score: {score}%</div>
+                                <p>📍 <b>{safe_value(m.get("area"))}</b></p>
+                                <p>Price: <b>{safe_value(m.get("price"), 0):,} PKR</b></p>
+                                <p>Size: <b>{safe_value(m.get("marla"))} Marla</b></p>
+                            </div>
+                            """, unsafe_allow_html=True)
 
-                            wa_text = (
-                                f"Salam {sel_c}, we found a matching property for you in "
-                                f"{safe_get(m, 'area', '')}. Demand: {safe_get(m, 'price', 0):,} PKR. "
+                            msg = (
+                                f"Salam {selected_client}, we found a matching property for you in "
+                                f"{safe_value(m.get('area'))}. Demand: {safe_value(m.get('price'), 0):,} PKR. "
                                 f"Contact us for details."
                             )
 
-                            phone = clean_phone(c.get("client_contact", ""))
+                            phone = clean_phone(client.get("client_contact"))
 
                             if phone:
                                 st.link_button(
-                                    "📲 Push to WhatsApp",
-                                    f"[wa.me](https://wa.me/{phone}?text={quote(wa_text)})"
+                                    "Send to WhatsApp",
+                                    f"[wa.me](https://wa.me/{phone}?text={quote(msg)})"
                                 )
-                            else:
-                                st.warning("Client contact number is missing or invalid.")
-                else:
-                    st.warning("No properties matching this client's profile.")
-        else:
-            st.info("No valid client names found.")
+                    else:
+                        st.warning("No matching property found.")
+                except Exception as e:
+                    st.error(f"Failed to match property: {e}")
     else:
-        st.info("No clients found.")
+        st.info("No clients available.")
 
-# -------------------------------
-# 10. FINANCE & PAYROLL
-# -------------------------------
-elif nav == "💰 Finance & Payroll":
-    st.title("Financial Ledger")
+# -----------------------------
+# FINANCE
+# -----------------------------
+elif nav == "Finance":
+    st.title("Finance")
 
     if st.session_state.role != "Admin":
-        st.error("Admin Access Required")
+        st.error("Only admin can access finance.")
     else:
-        with st.form("ledger_entry"):
-            f1, f2 = st.columns(2)
-            t_type = f1.selectbox("Transaction", ["Income", "Expense"])
-            amt = f2.number_input("Amount (PKR)", min_value=0)
-            desc = st.text_area("Details (Include Deal IDs)")
+        with st.form("finance_form", clear_on_submit=True):
+            c1, c2 = st.columns(2)
+            entry_type = c1.selectbox("Transaction Type", ["Income", "Expense"])
+            amount = c2.number_input("Amount", min_value=0, step=1000)
+            description = st.text_area("Description")
 
-            if st.form_submit_button("Record Transaction"):
+            save_finance = st.form_submit_button("Save Entry")
+
+            if save_finance:
                 try:
                     supabase.table("accounts").insert({
-                        "type": t_type,
-                        "amount": amt,
-                        "description": desc
+                        "type": entry_type,
+                        "amount": amount,
+                        "description": description
                     }).execute()
-                    st.success("Ledger Updated!")
-                except Exception as e:
-                    st.error(f"Error saving transaction: {e}")
 
-# -------------------------------
-# 11. ACTIVITY LOGS
-# -------------------------------
-elif nav == "📑 Activity Logs":
-    st.title("System Audit Trail")
+                    st.success("Finance entry saved.")
+                except Exception as e:
+                    st.error(f"Failed to save finance entry: {e}")
+
+        st.markdown("---")
+
+        try:
+            finance_data = supabase.table("accounts") \
+                .select("*") \
+                .order("id", desc=True) \
+                .execute().data
+
+            if finance_data:
+                df_fin = pd.DataFrame(finance_data)
+                cols = [c for c in ["id", "type", "amount", "description"] if c in df_fin.columns]
+                st.dataframe(df_fin[cols], use_container_width=True)
+            else:
+                st.info("No finance history found.")
+        except Exception as e:
+            st.error(f"Failed to load finance history: {e}")
+
+# -----------------------------
+# ACTIVITY LOGS
+# -----------------------------
+elif nav == "Activity Logs":
+    st.title("Activity Logs")
 
     if st.session_state.role != "Admin":
-        st.error("Access Denied")
+        st.error("Only admin can view logs.")
     else:
         try:
             logs = supabase.table("activity_logs") \
@@ -501,10 +522,9 @@ elif nav == "📑 Activity Logs":
 
             if logs:
                 df_logs = pd.DataFrame(logs)
-                show_cols = [col for col in ["created_at", "user", "action"] if col in df_logs.columns]
-                st.table(df_logs[show_cols])
+                cols = [c for c in ["created_at", "user", "action"] if c in df_logs.columns]
+                st.dataframe(df_logs[cols], use_container_width=True)
             else:
                 st.info("No activity logs found.")
         except Exception as e:
-            st.error(f"Error loading logs: {e}")
-
+            st.error(f"Failed to load logs: {e}")
