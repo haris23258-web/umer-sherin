@@ -116,7 +116,7 @@ with st.sidebar:
         st.rerun()
 
 # -----------------------------
-# 1. DASHBOARD MODULE (WITH STAFF PROGRESS REPORT)
+# 1. DASHBOARD MODULE
 # -----------------------------
 if st.session_state.current_nav == "Dashboard":
     st.title("📊 Portal Overview & Staff Analytics")
@@ -126,7 +126,7 @@ if st.session_state.current_nav == "Dashboard":
         inventory = supabase.table("inventory").select("*").execute().data
         clients_data = supabase.table("clients").select("*").execute().data
         accounts = supabase.table("accounts").select("*").execute().data
-        logs = supabase.table("activity_logs").select("*").execute().data
+        logs = supabase.table("activity_logs").select("*").order("id", desc=True).execute().data
         deals = supabase.table("deals").select("*").execute().data
     except: pass
 
@@ -149,9 +149,9 @@ if st.session_state.current_nav == "Dashboard":
             st.markdown("🗣️ **Staff Field Working & Area Activity:**")
             if logs:
                 df_logs = pd.DataFrame(logs)
-                # Filter out entries where area is recorded
                 if "target_area" in df_logs.columns:
-                    df_area_work = df_logs[df_logs["target_area"] != "N/A"][["user", "action", "target_area"]].tail(8)
+                    df_area_work = df_logs[df_logs["target_area"] != "N/A"][["user", "action", "target_area"]].head(10)
+                    df_area_work.columns = ["Staff Member", "Activity / Detail", "Area Name"]
                     st.dataframe(df_area_work, use_container_width=True, hide_index=True)
                 else:
                     st.info("No explicit field working recorded yet.")
@@ -180,11 +180,15 @@ if st.session_state.current_nav == "Dashboard":
         st.dataframe(df_inv[summary_cols].head(10).style.apply(highlight_rented, axis=1), use_container_width=True, hide_index=True)
 
 # -----------------------------
-# QUICK ENTRY MODULE (WITH LOGGING FIX)
+# 2. QUICK ENTRY MODULE (FIXED WITH THIRD TAB FOR WORKING FORM)
 # -----------------------------
 elif st.session_state.current_nav == "Quick Entry":
     st.title("Quick Entry Wizard")
-    tab1, tab2 = st.tabs(["🏡 House for Rent Entry", "👤 Client Requirements Entry"])
+    tab1, tab2, tab3 = st.tabs([
+        "🏡 House for Rent Entry", 
+        "👤 Client Requirements Entry",
+        "🗣️ Staff Daily Field Working Entry"
+    ])
 
     with tab1:
         st.subheader("Add House for Rent")
@@ -241,6 +245,36 @@ elif st.session_state.current_nav == "Quick Entry":
                         st.success("Client registered successfully!")
                     except Exception as e: st.error(f"Error: {e}")
 
+    # --- HEY BHAI! YEH RAHA NAYA STAFF WORKING FORM ---
+    with tab3:
+        st.subheader("📝 Record Staff Field Working & Activity")
+        st.caption("Staff member rozana jis area mein visit karein ya jo bhi kaam karein, uski details yahan enter karein.")
+        
+        with st.form("staff_work_form", clear_on_submit=True):
+            cw1, cw2 = st.columns(2)
+            
+            # Agar admin login hai toh kisi bhi staff ko select kar sakta hai, warna agent ka apna naam auto-select hoga
+            if st.session_state.role == "Admin":
+                working_staff = cw1.selectbox("Select Staff Member / Agent", list(USER_DB.keys()))
+            else:
+                working_staff = cw1.text_input("Staff Member", value=st.session_state.user, disabled=True)
+                
+            working_area = cw2.text_input("Target Area Name (e.g. DHA Phase 4, Bahria, G-11)")
+            
+            activity_detail = st.text_area("What work was done today? (Working Details)", 
+                                           placeholder="e.g. Visited 3 houses with Client Asif, or Collected new house keys from owner, etc.")
+            
+            if st.form_submit_button("📢 Submit Progress Report"):
+                if not working_area or not activity_detail:
+                    st.warning("Area Name aur Working Details likhna zaroori hai!")
+                else:
+                    # Save working log straight to activity database
+                    log_activity(working_staff, activity_detail, working_area)
+                    st.success(f"Perfect! {working_staff} ki progress report area '{working_area}' ke liye save ho gayi hai aur dashboard par refresh ho chuki hai.")
+                    
+                    # Chota sa delay to let user see success, then rerun
+                    st.rerun()
+
 # -----------------------------
 # PROPERTIES MODULE
 # -----------------------------
@@ -253,10 +287,8 @@ elif st.session_state.current_nav == "Properties":
             df_inv = pd.DataFrame(properties)
             all_cols = ["id", "area", "marla", "property_type", "sub_type", "price", "status", "owner_name", "owner_contact"]
             display_cols = [c for c in all_cols if c in df_inv.columns]
-            
             def style_prop_row(row):
                 return ['background-color: #dcfce7; color: #166534; font-weight: bold;'] * len(row) if row.status in ["Rent Out", "Sold"] else [''] * len(row)
-                
             st.dataframe(df_inv[display_cols].style.apply(style_prop_row, axis=1), use_container_width=True, hide_index=True)
         else: st.info("No properties found.")
     except Exception as e: st.error(f"Error: {e}")
@@ -273,23 +305,18 @@ elif st.session_state.current_nav == "Clients":
             df_clients = pd.DataFrame(clients)
             all_client_cols = ["id", "client_name", "client_contact", "demand_type", "max_budget", "preferred_area", "status"]
             display_cols = [c for c in all_client_cols if c in df_clients.columns]
-            
             def style_client_row(row):
                 return ['background-color: #dcfce7; color: #166534; font-weight: bold;'] * len(row) if row.status == "House Found" else [''] * len(row)
-                
             st.dataframe(df_clients[display_cols].style.apply(style_client_row, axis=1), use_container_width=True, hide_index=True)
         else: st.info("No client records found.")
     except Exception as e: st.error(f"Error: {e}")
 
 # -----------------------------
-# 2. NEW MODULE: DEAL DONE REGISTRY (KAPTAAN METRICS)
+# DEAL DONE REGISTRY
 # -----------------------------
 elif st.session_state.current_nav == "Deal Done Registry":
     st.title("🤝 Deal Closure & Done Registry")
-    st.subheader("Record a Successful Deal (Property + Client Link)")
-    
     try:
-        # Fetch active data for choice selectors
         available_props = supabase.table("inventory").select("*").neq("status", "Rent Out").execute().data
         active_clients = supabase.table("clients").select("*").neq("status", "House Found").execute().data
         
@@ -298,8 +325,6 @@ elif st.session_state.current_nav == "Deal Done Registry":
         else:
             with st.form("deal_done_form", clear_on_submit=True):
                 col_d1, col_d2 = st.columns(2)
-                
-                # Choices setup
                 prop_options = {f"ID: {p['id']} - {p['marla']} Marla at {p['area']} ({p['price']} PKR)": p for p in available_props}
                 client_options = {f"ID: {c['id']} - {c['client_name']} ({c['preferred_area']})": c for c in active_clients}
                 
@@ -314,11 +339,8 @@ elif st.session_state.current_nav == "Deal Done Registry":
                     p_obj = prop_options[selected_p_str]
                     c_obj = client_options[selected_c_str]
                     
-                    # 1. Update Property Status to Rent Out
                     supabase.table("inventory").update({"status": "Rent Out"}).eq("id", p_obj["id"]).execute()
-                    # 2. Update Client Status to House Found
                     supabase.table("clients").update({"status": "House Found"}).eq("id", c_obj["id"]).execute()
-                    # 3. Add to Main Deals Ledger
                     supabase.table("deals").insert({
                         "client_name": c_obj["client_name"],
                         "property_details": f"{p_obj['marla']} Marla at {p_obj['area']}",
@@ -326,13 +348,10 @@ elif st.session_state.current_nav == "Deal Done Registry":
                         "commission_earned": commission
                     }).execute()
                     
-                    # 4. Log for Progress Report Tracking
                     log_activity(agent_involved, f"Successfully Closed Deal for Client: {c_obj['client_name']}", p_obj['area'])
-                    
-                    st.success(f"Mubarak ho! Deal done ho gayi hai. Agent {agent_involved} ki report aur dono databases update ho chuke hain.")
+                    st.success(f"Mubarak ho! Deal done ho gayi hai.")
                     st.rerun()
-    except Exception as e:
-        st.error(f"Deal Registry Error: {e}")
+    except Exception as e: st.error(f"Deal Registry Error: {e}")
 
 # -----------------------------
 # DEAL MATCHER MODULE
@@ -345,12 +364,10 @@ elif st.session_state.current_nav == "Deal Matcher":
             c_names = [x["client_name"] for x in clients]
             selected_c = st.selectbox("Choose Client Target", c_names)
             client_record = next((c for c in clients if c["client_name"] == selected_c), None)
-            
             if client_record:
                 budget = client_record.get("max_budget", 0)
                 demand = client_record.get("demand_type")
                 matched_data = supabase.table("inventory").select("*").eq("property_type", demand).lte("price", budget * 1.1).execute().data
-                
                 if matched_data:
                     for m in matched_data:
                         status_tag = '<span style="color:green; font-weight:bold;">Rent Out</span>' if m.get("status") == "Rent Out" else '<span style="color:blue; font-weight:bold;">Available</span>'
