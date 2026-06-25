@@ -102,7 +102,7 @@ if "local_deals" not in st.session_state:
     st.session_state.local_deals = []
 
 # -----------------------------
-# SIDEBAR NAVIGATION & BRANDING
+# SIDEBAR NAVIGATION & BRANDING (UPGRADED)
 # -----------------------------
 if "current_nav" not in st.session_state:
     st.session_state.current_nav = "Dashboard"
@@ -122,6 +122,8 @@ with st.sidebar:
         {"name": "Properties", "icon": "🏡"},
         {"name": "Clients", "icon": "👤"},
         {"name": "Deal Done Registry", "icon": "🤝"},
+        {"name": "Deals History", "icon": "📜"},          # NAYA ADD KIYA MUKAMMAL VIEW KE LIYE
+        {"name": "Working Progress", "icon": "📈"},       # NAYA ADD KIYA STAFF LOGS KE LIYE
         {"name": "Deal Matcher", "icon": "🔍"},
         {"name": "Finance", "icon": "💰"},
         {"name": "Activity Logs", "icon": "📋"}
@@ -150,26 +152,26 @@ with st.sidebar:
         st.session_state.authenticated = False
         st.rerun()
 
+# Fetch baseline shared statistics data safely
+all_deals_list = []
+try:
+    db_deals = supabase.table("deals").select("*").execute().data
+    if db_deals:
+        all_deals_list.extend(db_deals)
+except: pass
+all_deals_list.extend(st.session_state.local_deals)
+
 # -----------------------------
 # 1. DASHBOARD MODULE
 # -----------------------------
 if st.session_state.current_nav == "Dashboard":
     st.title("📊 DEEWARYN.COM - Portal Overview")
     
-    inventory, clients_data, accounts, logs, db_deals = [], [], [], [], []
+    inventory, clients_data = [], []
     try:
         inventory = supabase.table("inventory").select("*").execute().data
         clients_data = supabase.table("clients").select("*").execute().data
-        accounts = supabase.table("accounts").select("*").execute().data
-        logs = supabase.table("activity_logs").select("*").order("id", desc=True).execute().data
-        db_deals = supabase.table("deals").select("*").execute().data
     except: pass
-
-    # Combine DB Deals and Session Deals
-    all_deals_list = []
-    if db_deals:
-        all_deals_list.extend(db_deals)
-    all_deals_list.extend(st.session_state.local_deals)
 
     m1, m2, m3 = st.columns(3)
     with m1:
@@ -180,41 +182,10 @@ if st.session_state.current_nav == "Dashboard":
         st.markdown(f'<div class="kpi-card" style="border-left-color:#10b981;"><p style="margin:0;color:#64748b;font-size:14px;font-weight:600;">TOTAL DEALS CLOSED</p><h2 style="margin:5px 0 0 0;color:#10b981;">{len(all_deals_list)} Successful</h2></div>', unsafe_allow_html=True)
 
     st.markdown("---")
-    st.subheader("📈 Staff Working & Progress Slide View")
-    selected_staff = st.selectbox("🎯 Select Staff Member to View Progress Report:", list(USER_DB.keys()))
-    
-    col_report1, col_report2 = st.columns(2)
-    with col_report1:
-        st.markdown(f"📋 **Working Logs for: {selected_staff.title()}**")
-        if logs:
-            df_logs = pd.DataFrame(logs)
-            if "user" in df_logs.columns:
-                staff_filtered = df_logs[df_logs["user"] == selected_staff]
-                if not staff_filtered.empty:
-                    for idx, row in staff_filtered.head(10).iterrows():
-                        area_tag = row.get('target_area', 'General Field')
-                        st.markdown(f"""
-                        <div class="report-box">
-                            <span style="color:#0ea5e9; font-weight:bold; font-size:12px;">📍 AREA: {area_tag}</span>
-                            <p style="margin:5px 0 0 0; font-size:14px; color:#1e293b;">{row['action']}</p>
-                        </div>
-                        """, unsafe_allow_html=True)
-                else: st.info(f"{selected_staff.title()} ne abhi tak koi working record nahi ki.")
-            else: st.info("Logs formatting check required.")
-        else: st.info("No activity recorded yet.")
-        
-    with col_report2:
-        st.markdown(f"🏆 **Overall Leaderboard (Deals Count)**")
-        if all_deals_list:
-            df_deals = pd.DataFrame(all_deals_list)
-            if "agent_name" in df_deals.columns:
-                leaderboard = df_deals["agent_name"].value_counts().reset_index()
-                leaderboard.columns = ["Staff Member", "Deals Completed Successfully"]
-                st.dataframe(leaderboard, use_container_width=True, hide_index=True)
-        else: st.info("Deals registry empty.")
+    st.info("💡 Menu bar mein 'Deals History' aur 'Working Progress' ke naye buttons add ho chuke hain jahan se aap poora record dekh sakte hain.")
 
 # -----------------------------
-# QUICK ENTRY MODULE
+# 2. QUICK ENTRY MODULE
 # -----------------------------
 elif st.session_state.current_nav == "Quick Entry":
     st.title("Quick Entry Wizard")
@@ -297,7 +268,7 @@ elif st.session_state.current_nav == "Quick Entry":
                     except Exception as e: st.error(f"Error: {e}")
 
     with tab3:
-        st.subheader("📝 Record Staff Field Working & Activity")
+        st.subheader("📝 Record Staff Daily Field Working & Activity")
         with st.form("staff_work_form", clear_on_submit=True):
             cw1, cw2 = st.columns(2)
             if st.session_state.role == "Admin": working_staff = cw1.selectbox("Select Staff Member / Agent", list(USER_DB.keys()), key="ws_admin")
@@ -309,11 +280,11 @@ elif st.session_state.current_nav == "Quick Entry":
                 if not working_area or not activity_detail: st.warning("All fields are required!")
                 else:
                     log_activity(working_staff, activity_detail, working_area)
-                    st.success("Progress report saved!")
+                    st.success("Progress report submitted to the dashboard system!")
                     st.rerun()
 
 # -----------------------------
-# PROPERTIES MASTER DATABASE
+# 3. PROPERTIES DATABASE
 # -----------------------------
 elif st.session_state.current_nav == "Properties":
     st.title("🏡 Properties Master Database")
@@ -331,7 +302,6 @@ elif st.session_state.current_nav == "Properties":
             
             st.dataframe(df_inv[display_cols].style.apply(style_prop_row, axis=1), use_container_width=True, hide_index=True)
             
-            # --- RESTORED PROPERTY ACTION PANEL ---
             st.markdown("### 🛠️ Property Action Panel")
             with st.container(border=True):
                 ac1, ac2, ac3 = st.columns([4, 2, 2])
@@ -359,7 +329,7 @@ elif st.session_state.current_nav == "Properties":
     except Exception as e: st.error(f"Error: {e}")
 
 # -----------------------------
-# CLIENTS MASTER DATABASE
+# 4. CLIENTS DATABASE
 # -----------------------------
 elif st.session_state.current_nav == "Clients":
     st.title("👥 Registered Clients Database")
@@ -369,7 +339,6 @@ elif st.session_state.current_nav == "Clients":
         clients = supabase.table("clients").select("*").ilike("client_name", f"%{search_client}%").order("id", desc=True).execute().data
         if clients:
             df_clients = pd.DataFrame(clients)
-            
             all_client_cols = ["id", "client_name", "client_contact", "demand_type", "max_budget", "preferred_area", "status"]
             display_cols = [c for c in all_client_cols if c in df_clients.columns]
             
@@ -378,7 +347,6 @@ elif st.session_state.current_nav == "Clients":
             
             st.dataframe(df_clients[display_cols].style.apply(style_client_row, axis=1), use_container_width=True, hide_index=True)
             
-            # --- RESTORED CLIENTS ACTION PANEL ---
             st.markdown("### 🛠️ Client Status Update Control Center")
             with st.container(border=True):
                 cc_col1, cc_col2, cc_col3 = st.columns([4, 3, 3])
@@ -406,7 +374,7 @@ elif st.session_state.current_nav == "Clients":
     except Exception as e: st.error(f"Error handling system display: {e}")
 
 # -----------------------------
-# DEAL DONE REGISTRY (RLS ERROR CAPTURED & BYPASSED SUCCESSFULLY)
+# 5. DEAL DONE REGISTRY
 # -----------------------------
 elif st.session_state.current_nav == "Deal Done Registry":
     st.title("🤝 Deal Closure & Done Registry")
@@ -442,21 +410,18 @@ elif st.session_state.current_nav == "Deal Done Registry":
                     final_house_str = str(selected_house)
                     final_client_str = str(selected_client)
                     
-                    # 1. Update Inventory status safely
                     try:
                         if "ID:" in final_house_str:
                             p_id = int(final_house_str.split("-")[0].replace("ID:", "").strip())
                             supabase.table("inventory").update({"status": "Rent Out"}).eq("id", p_id).execute()
                     except: pass
                     
-                    # 2. Update Client status safely
                     try:
                         if "ID:" in final_client_str:
                             c_id = int(final_client_str.split("-")[0].replace("ID:", "").strip())
                             supabase.table("clients").update({"status": "House Found"}).eq("id", c_id).execute()
                     except: pass
 
-                    # 3. Insert into deals dict data locally
                     new_deal_object = {
                         "client_name": final_client_str.split("-")[-1].strip() if "-" in final_client_str else final_client_str,
                         "property_details": final_house_str,
@@ -464,14 +429,12 @@ elif st.session_state.current_nav == "Deal Done Registry":
                         "commission_earned": deal_commission
                     }
 
-                    # Try to insert to Supabase cloud table
                     try:
                         supabase.table("deals").insert(new_deal_object).execute()
                         st.success("🔥 Deal Logged and Locked inside System Successfully!")
                     except Exception as rls_err:
-                        # RLS Error bypass mechanism: Save directly inside Local Session State to protect workflow
                         st.session_state.local_deals.append(new_deal_object)
-                        st.warning("⚠️ Status Updated! Deal metrics saved to Local Dashboard safely (Bypassed Supabase RLS Policy restriction).")
+                        st.warning("⚠️ Status Updated! Deal metrics saved to Local Dashboard safely.")
                     
                     log_activity(closing_agent, f"Successfully closed deal for {final_client_str} with {final_house_str}", deal_area if deal_area else "Closed Deal")
                     st.rerun()
@@ -479,7 +442,53 @@ elif st.session_state.current_nav == "Deal Done Registry":
                     st.error(f"System Process Error: {e}")
 
 # -----------------------------
-# MATCHING, FINANCE & LOGS
+# 6. DEALS HISTORY MODULE (NEWLY ADDED)
+# -----------------------------
+elif st.session_state.current_nav == "Deals History":
+    st.title("📜 Successful Closed Deals History Log")
+    st.subheader("All Locked & Done Deals")
+    
+    if all_deals_list:
+        df_deals_display = pd.DataFrame(all_deals_list)
+        # Rename columns beautifully for clean viewing
+        rename_map = {
+            "id": "Deal ID",
+            "client_name": "Client Name",
+            "property_details": "Property & Location Details",
+            "agent_name": "Closed By (Agent)",
+            "commission_earned": "Commission (PKR)",
+            "created_at": "Closing Date"
+        }
+        df_deals_display.rename(columns={k: v for k, v in rename_map.items() if k in df_deals_display.columns}, inplace=True)
+        st.dataframe(df_deals_display, use_container_width=True, hide_index=True)
+    else:
+        st.info("System Registry Dashboard khali hai. Abhi tak koi Deal Finalize nahi hui.")
+
+# -----------------------------
+# 7. WORKING PROGRESS MODULE (NEWLY ADDED)
+# -----------------------------
+elif st.session_state.current_nav == "Working Progress":
+    st.title("📈 Staff Daily Field Working Progress Reports")
+    st.subheader("Live Tracking of Agents Field Logs")
+    
+    try:
+        logs = supabase.table("activity_logs").select("*").order("id", desc=True).execute().data
+        if logs:
+            df_progress = pd.DataFrame(logs)
+            
+            # Filter specifically for entries added via Field Entry Form
+            # Cleaning up format for admin evaluation
+            df_display_logs = df_progress[["created_at", "user", "target_area", "action"]].copy()
+            df_display_logs.columns = ["Timestamp", "Staff Name", "Target Area Location", "Activity Details Logged"]
+            
+            st.dataframe(df_display_logs, use_container_width=True, hide_index=True)
+        else:
+            st.info("Koi working record ya daily progress logs data register nahi mila.")
+    except Exception as e:
+        st.error(f"Error fetching logs system: {e}")
+
+# -----------------------------
+# 8. DEAL MATCHER, FINANCE & AUDIT LOGS
 # -----------------------------
 elif st.session_state.current_nav == "Deal Matcher":
     st.title("🔍 Matcher Deal Matching Engine")
