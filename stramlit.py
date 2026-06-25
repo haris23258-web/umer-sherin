@@ -14,7 +14,7 @@ st.set_page_config(
 )
 
 # -----------------------------
-# CUSTOM CSS FOR REFINED FINISHING (STABLE MOBILE FIX)
+# CUSTOM CSS FOR REFINED FINISHING (NATURAL MOBILE SIDEBAR)
 # -----------------------------
 st.markdown("""
 <style>
@@ -72,7 +72,7 @@ st.markdown("""
     line-height: 1.5;
 }
 
-/* 📱 MOBILE RESPONSIVE TUNING */
+/* 📱 STANDARD MOBILE RESPONSIVE TUNING */
 @media (max-width: 768px) {
     .metric-container {
         flex-direction: column; 
@@ -90,7 +90,7 @@ st.markdown("""
         padding-left: 0.8rem;
         padding-right: 0.8rem;
     }
-    /* Mobile par button sizing control */
+    /* Mobile par button responsive font */
     .stButton button {
         padding: 10px 5px !important;
         font-size: 14px !important;
