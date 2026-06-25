@@ -96,10 +96,11 @@ def convert_df_to_pdf_html(df, title):
     return html
 
 # -----------------------------
-# LOGIN SYSTEM (UMER ADDED AS VIEWER)
+# LOGIN SYSTEM (CEO SAMI ADDED)
 # -----------------------------
 USER_DB = {
-    "umer": {"role": "Viewer", "pin": "umer123"},       # Owner / Viewer Role (Sirf dekhne ke liye)
+    "sami": {"role": "Viewer", "pin": "sami786"},       # CEO / Viewer Role
+    "umer": {"role": "Viewer", "pin": "umer123"},       # Owner / Viewer Role
     "sawer khan": {"role": "Agent", "pin": "sawer123"}, # Agent Role
     "tariq": {"role": "Agent", "pin": "tariq456"}       # Agent Role
 }
@@ -140,16 +141,15 @@ with st.sidebar:
     st.write(f"👤 **{st.session_state.user.title()}** ({st.session_state.role})")
     st.divider()
     
-    # Conditional Navigation Modules based on Role
     modules = [{"name": "Dashboard", "icon": "📊"}]
     
-    # Quick Entry sirf Agents (Sawer aur Tariq) ko dikhegi, Umer bhai ko nahi dikhegi kyuki aap ne edit/add nahi karna
     if st.session_state.role != "Viewer":
         modules.append({"name": "Quick Entry", "icon": "➕"})
         
     modules.extend([
         {"name": "Properties", "icon": "🏡"},
         {"name": "Clients", "icon": "👤"},
+        {"name": "Property Visits Log", "icon": "📋"}  # Naya Visit Record Module
     ])
     
     if st.session_state.role != "Viewer":
@@ -186,7 +186,6 @@ with st.sidebar:
         st.session_state.authenticated = False
         st.rerun()
 
-# Pre-fetch baseline data safely
 all_deals_list = []
 try:
     db_deals = supabase.table("deals").select("*").execute().data
@@ -200,25 +199,27 @@ all_deals_list.extend(st.session_state.local_deals)
 if st.session_state.current_nav == "Dashboard":
     st.title("📊 DEEWARYN.COM - Portal Overview")
     
-    inventory, clients_data = [], []
+    inventory, clients_data, total_visits = [], [], 0
     try:
         inventory = supabase.table("inventory").select("*").execute().data
         clients_data = supabase.table("clients").select("*").execute().data
+        visits_data = supabase.table("property_visits").select("id").execute().data
+        total_visits = len(visits_data) if visits_data else 0
     except: pass
 
-    m1, m2, m3 = st.columns(3)
+    m1, m2, m3, m4 = st.columns(4)
     with m1:
         st.markdown(f'<div class="kpi-card"><p style="margin:0;color:#64748b;font-size:14px;font-weight:600;">TOTAL PROPERTIES</p><h2 style="margin:5px 0 0 0;color:#1e3a8a;">{len(inventory) if inventory else 0} Units</h2></div>', unsafe_allow_html=True)
     with m2:
         st.markdown(f'<div class="kpi-card" style="border-left-color:#0ea5e9;"><p style="margin:0;color:#64748b;font-size:14px;font-weight:600;">REGISTERED CLIENTS</p><h2 style="margin:5px 0 0 0;color:#0ea5e9;">{len(clients_data) if clients_data else 0} Active</h2></div>', unsafe_allow_html=True)
     with m3:
-        st.markdown(f'<div class="kpi-card" style="border-left-color:#10b981;"><p style="margin:0;color:#64748b;font-size:14px;font-weight:600;">TOTAL DEALS CLOSED</p><h2 style="margin:5px 0 0 0;color:#10b981;">{len(all_deals_list)} Successful</h2></div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="kpi-card" style="border-left-color:#f59e0b;"><p style="margin:0;color:#64748b;font-size:14px;font-weight:600;">TOTAL VISITS DONE</p><h2 style="margin:5px 0 0 0;color:#f59e0b;">{total_visits} Visits</h2></div>', unsafe_allow_html=True)
+    with m4:
+        st.markdown(f'<div class="kpi-card" style="border-left-color:#10b981;"><p style="margin:0;color:#64748b;font-size:14px;font-weight:600;">DEALS CLOSED</p><h2 style="margin:5px 0 0 0;color:#10b981;">{len(all_deals_list)} Units</h2></div>', unsafe_allow_html=True)
 
     st.markdown("---")
     if st.session_state.role == "Viewer":
-        st.info(f"👋 KhushAamdeed Umer Bhai! Aap is waqt **Watch-Only Mode** mein hain. Aap poore staff ki working aur gharon ka record dekh sakte hain par koi tabdeeli nahi kar sakte.")
-    else:
-        st.info("💡 Date tracking aur Agent name validation system ke har kone me add kar diye gaye hain.")
+        st.info(f"👋 Welcome! Aap is waqt **Watch-Only Admin Mode** mein hain. Aap poore staff ki working, gharon aur property visits ka live record dekh sakte hain.")
 
 # -----------------------------
 # 2. QUICK ENTRY MODULE
@@ -228,7 +229,7 @@ elif st.session_state.current_nav == "Quick Entry":
         st.error("Aap ko is page tak rasai nahi hai.")
     else:
         st.title("Quick Entry Wizard")
-        tab1, tab2, tab3 = st.tabs(["🏡 House for Rent Entry", "👤 Client Requirements Entry", "🗣️ Staff Daily Field Working Entry"])
+        tab1, tab2, tab3, tab4 = st.tabs(["🏡 House for Rent Entry", "👤 Client Requirements Entry", "🚗 Staff Property Visits Entry", "🗣️ Staff Field Notes"])
 
         current_timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         current_logged_agent = st.session_state.user
@@ -247,7 +248,7 @@ elif st.session_state.current_nav == "Quick Entry":
                 status = c6.selectbox("Status", ["Available", "Rent Out", "Hold"])
                 
                 st.markdown("**🔋 Utilities Details / Sahoolat:**")
-                ut1, ut2, ut3 = ut1, ut2, ut3 = st.columns(3)
+                ut1, ut2, ut3 = st.columns(3)
                 elec_opt = ut1.selectbox("Bijli (Electricity)", ["Available", "Not Available / No Meter"])
                 gas_opt = ut2.selectbox("Gas", ["Available", "Not Available / No Cylinder Only"])
                 water_opt = ut3.selectbox("Pani (Water Supply)", ["Water Bore", "Government Supply", "Bore + Supply Both", "No Water / Tanker Only"])
@@ -271,12 +272,12 @@ elif st.session_state.current_nav == "Quick Entry":
                                 "added_by": current_logged_agent,
                                 "created_at": current_timestamp
                             }).execute()
-                            st.success(f"Rent property saved safely by {current_logged_agent.title()} on {current_timestamp}!")
+                            st.success(f"Rent property saved safely by {current_logged_agent.title()}!")
                         except Exception as e: st.error(f"Error: {e}")
 
         with tab2:
             st.subheader("Add Client Requirements")
-            with st.form("quick_client_form", clear_on_submit=True):
+            with Form := st.form("quick_client_form", clear_on_submit=True):
                 cc1, cc2 = st.columns(2)
                 client_name = cc1.text_input("Client Name")
                 client_contact = cc2.text_input("Client Contact")
@@ -299,22 +300,46 @@ elif st.session_state.current_nav == "Quick Entry":
                                 "added_by": current_logged_agent,
                                 "created_at": current_timestamp
                             }).execute()
-                            st.success(f"Client registered successfully by {current_logged_agent.title()} on {current_timestamp}!")
+                            st.success(f"Client registered successfully!")
                         except Exception as e: st.error(f"Error: {e}")
 
         with tab3:
-            st.subheader("📝 Record Staff Daily Progress Report")
+            st.subheader("🚗 Log a Property Visit with Client")
+            # Naya Form: Sawer Khan ya Tariq yahan apni visit enter karenge
+            with st.form("visit_entry_form", clear_on_submit=True):
+                v_c1, v_c2 = st.columns(2)
+                v_client = v_c1.text_input("Client Name (Whom you showed the house)")
+                v_property = v_c2.text_input("Property / House Visited (Area & Details)")
+                v_feedback = st.text_area("Client Feedback (e.g., Token promised, Disliked due to gas issue, Token given, etc.)")
+                
+                if st.form_submit_button("💾 Save Visit Entry"):
+                    if not v_client or not v_property: st.warning("Please fill Client and Property details.")
+                    else:
+                        try:
+                            supabase.table("property_visits").insert({
+                                "client_name": v_client,
+                                "property_details": v_property,
+                                "feedback": v_feedback,
+                                "agent_name": current_logged_agent,
+                                "created_at": current_timestamp
+                            }).execute()
+                            log_activity(current_logged_agent, f"Logged a property visit for client {v_client}", v_property)
+                            st.success("🎉 Property visit entry recorded successfully!")
+                        except Exception as e: st.error(f"Database error or Table missing: {e}")
+
+        with tab4:
+            st.subheader("📝 Record Staff Daily Field Notes")
             with st.form("staff_work_form", clear_on_submit=True):
                 cw1, cw2 = st.columns(2)
                 working_staff = cw1.text_input("Staff Member", value=st.session_state.user, disabled=True)
                 working_area = cw2.text_input("Target Area Name")
-                activity_detail = st.text_area("What work was done today?")
-                if st.form_submit_button("📢 Submit Progress Report"):
+                activity_detail = st.text_area("What general work was done today?")
+                if st.form_submit_button("📢 Submit Notes"):
                     log_activity(working_staff, activity_detail, working_area)
-                    st.success("Progress report logged!")
+                    st.success("Notes logged!")
 
 # -----------------------------
-# 3. PROPERTIES DATABASE (WATCH MODE INTEGRATED)
+# 3. PROPERTIES DATABASE
 # -----------------------------
 elif st.session_state.current_nav == "Properties":
     st.title("🏡 Properties Master Database")
@@ -324,11 +349,9 @@ elif st.session_state.current_nav == "Properties":
         properties = supabase.table("inventory").select("*").ilike("area", f"%{search}%").order("id", desc=True).execute().data
         if properties:
             df_inv = pd.DataFrame(properties)
-            
             all_cols = ["id", "created_at", "added_by", "area", "marla", "property_type", "sub_type", "price", "status", "owner_name", "owner_contact", "visiting_time"]
             display_cols = [c for c in all_cols if c in df_inv.columns]
             
-            # Print PDF Report Button for whole view
             pdf_html = convert_df_to_pdf_html(df_inv[display_cols], "Properties Inventory Report")
             st.download_button(label="📥 Print PDF (Download Properties Report)", data=pdf_html, file_name="properties_report.html", mime="text/html")
             
@@ -337,7 +360,6 @@ elif st.session_state.current_nav == "Properties":
             
             st.dataframe(df_inv[display_cols].style.apply(style_prop_row, axis=1), use_container_width=True, hide_index=True)
             
-            # Action Controls hide for Umer Bhai (Viewer)
             if st.session_state.role != "Viewer":
                 st.markdown("### 🛠️ Property Action Controls")
                 with st.container(border=True):
@@ -345,7 +367,6 @@ elif st.session_state.current_nav == "Properties":
                     prop_options = {f"ID: {p['id']} - {p['marla']} Marla ({p['area']}) [Current: {p['status']}]": p['id'] for p in properties}
                     selected_p_label = ac1.selectbox("Select Property Unit to update:", list(prop_options.keys()))
                     selected_p_id = prop_options[selected_p_label]
-                    
                     current_unit = next((item for item in properties if item["id"] == selected_p_id), None)
                     
                     if ac2.button("✅ Mark Selected Rent Out", use_container_width=True):
@@ -362,7 +383,7 @@ elif st.session_state.current_nav == "Properties":
     except Exception as e: st.error(f"Error: {e}")
 
 # -----------------------------
-# 4. CLIENTS DATABASE (WATCH MODE INTEGRATED)
+# 4. CLIENTS DATABASE
 # -----------------------------
 elif st.session_state.current_nav == "Clients":
     st.title("👥 Registered Clients Database")
@@ -372,11 +393,9 @@ elif st.session_state.current_nav == "Clients":
         clients = supabase.table("clients").select("*").ilike("client_name", f"%{search_client}%").order("id", desc=True).execute().data
         if clients:
             df_clients = pd.DataFrame(clients)
-            
             all_client_cols = ["id", "created_at", "added_by", "client_name", "client_contact", "demand_type", "max_budget", "preferred_area", "status"]
             display_cols = [c for c in all_client_cols if c in df_clients.columns]
             
-            # Print PDF Report Button for whole view
             pdf_html = convert_df_to_pdf_html(df_clients[display_cols], "Registered Clients Requirements")
             st.download_button(label="📥 Print PDF (Download Clients Report)", data=pdf_html, file_name="clients_report.html", mime="text/html")
             
@@ -385,7 +404,6 @@ elif st.session_state.current_nav == "Clients":
             
             st.dataframe(df_clients[display_cols].style.apply(style_client_row, axis=1), use_container_width=True, hide_index=True)
             
-            # Action Controls hide for Umer Bhai (Viewer)
             if st.session_state.role != "Viewer":
                 st.markdown("### 🛠️ Client Status Update Control Center")
                 with st.container(border=True):
@@ -393,7 +411,6 @@ elif st.session_state.current_nav == "Clients":
                     client_options = {f"ID: {c['id']} - {c['client_name']} [Status: {c['status']}]": c['id'] for c in clients}
                     sel_client_label = cc_col1.selectbox("Select Target Client:", list(client_options.keys()))
                     sel_client_id = client_options[sel_client_label]
-                    
                     current_client_record = next((x for x in clients if x["id"] == sel_client_id), None)
                     
                     if cc_col2.button("🤝 Mark Status: House Found", use_container_width=True):
@@ -410,14 +427,37 @@ elif st.session_state.current_nav == "Clients":
     except Exception as e: st.error(f"Error handling system display: {e}")
 
 # -----------------------------
-# 5. DEAL DONE REGISTRY
+# 5. PROPERTY VISITS LOG (NEW MODULE)
+# -----------------------------
+elif st.session_state.current_nav == "Property Visits Log":
+    st.title("📋 Staff Daily Property Visits Record Room")
+    st.write("Yahan Sawer Khan aur Tariq ki un tamam visits ka record hai jo unho ne clients ko ghar dikhane ke liye ki hain.")
+    
+    try:
+        # Fetch data from property_visits table
+        visits = supabase.table("property_visits").select("*").order("id", desc=True).execute().data
+        if visits:
+            df_visits = pd.DataFrame(visits)[["created_at", "agent_name", "client_name", "property_details", "feedback"]]
+            df_visits.columns = ["Date & Time", "Agent Name", "Client Name", "Property Visited", "Client Feedback / Remarks"]
+            
+            # Print PDF Report Button for whole view
+            pdf_html = convert_df_to_pdf_html(df_visits, "Daily Property Visits Report")
+            st.download_button(label="📥 Print PDF (Download Visits Report Log)", data=pdf_html, file_name="property_visits_report.html", mime="text/html")
+            
+            st.dataframe(df_visits, use_container_width=True, hide_index=True)
+        else:
+            st.info("Abhi tak system mein koi Property Visit report enter nahi ki gayi.")
+    except Exception as e:
+        st.error(f"Error loading visits log. Make sure 'property_visits' table exists in Supabase: {e}")
+
+# -----------------------------
+# 6. DEAL DONE REGISTRY
 # -----------------------------
 elif st.session_state.current_nav == "Deal Done Registry":
     if st.session_state.role == "Viewer":
         st.error("Aap ko is page tak rasai nahi hai.")
     else:
         st.title("🤝 Deal Closure & Done Registry")
-        # Registry Form as before...
         db_props, db_clients = [], []
         try:
             db_props = supabase.table("inventory").select("id, area, marla, price").neq("status", "Rent Out").execute().data
@@ -470,7 +510,7 @@ elif st.session_state.current_nav == "Deal Done Registry":
                     except Exception as e: st.error(f"System Error: {e}")
 
 # -----------------------------
-# 6. DEALS HISTORY MODULE
+# 7. DEALS HISTORY MODULE
 # -----------------------------
 elif st.session_state.current_nav == "Deals History":
     st.title("📜 Successful Closed Deals History Log")
@@ -482,7 +522,7 @@ elif st.session_state.current_nav == "Deals History":
     else: st.info("System Registry Dashboard khali hai.")
 
 # -----------------------------
-# 7. WORKING PROGRESS MODULE (STAFF LOGS)
+# 8. WORKING PROGRESS MODULE (STAFF LOGS)
 # -----------------------------
 elif st.session_state.current_nav == "Working Progress":
     st.title("📈 Staff Daily Progress Reports (Sawer Khan & Tariq)")
@@ -491,7 +531,6 @@ elif st.session_state.current_nav == "Working Progress":
         if logs:
             df_progress = pd.DataFrame(logs)[["created_at", "user", "target_area", "action"]]
             df_progress.columns = ["Timestamp", "Staff Name", "Target Area Location", "Activity Details Logged"]
-            
             pdf_html = convert_df_to_pdf_html(df_progress, "Staff Performance & Field Working Logs")
             st.download_button(label="📥 Print PDF (Download Working Reports)", data=pdf_html, file_name="staff_working_report.html", mime="text/html")
             st.dataframe(df_progress, use_container_width=True, hide_index=True)
@@ -499,7 +538,7 @@ elif st.session_state.current_nav == "Working Progress":
     except Exception as e: st.error(f"Error fetching logs: {e}")
 
 # -----------------------------
-# 8. DEAL MATCHER, FINANCE & AUDIT LOGS
+# 9. DEAL MATCHER, FINANCE & AUDIT LOGS
 # -----------------------------
 elif st.session_state.current_nav == "Deal Matcher":
     st.title("🔍 Matcher Deal Matching Engine")
@@ -526,7 +565,6 @@ elif st.session_state.current_nav == "Deal Matcher":
 elif st.session_state.current_nav == "Finance":
     st.title("💰 Ledger Management")
     if st.session_state.role == "Viewer":
-        # Umer bhai can watch Finance records but can't add records
         try:
             acc_data = supabase.table("accounts").select("*").order("id", desc=True).execute().data
             if acc_data: st.dataframe(pd.DataFrame(acc_data), use_container_width=True, hide_index=True)
