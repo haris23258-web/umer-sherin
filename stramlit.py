@@ -65,13 +65,13 @@ def log_activity(user, action, area="N/A"):
         supabase.table("activity_logs").insert({
             "user": user, 
             "action": action,
-            "target_area": area
+            "target_area": area,
+            "created_at": datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         }).execute()
     except:
         pass
 
 def convert_df_to_pdf_html(df, title):
-    # Generates a clean printable HTML document that acts perfectly as a PDF when printed/saved
     html = f"""
     <html>
     <head>
@@ -205,14 +205,17 @@ if st.session_state.current_nav == "Dashboard":
         st.markdown(f'<div class="kpi-card" style="border-left-color:#10b981;"><p style="margin:0;color:#64748b;font-size:14px;font-weight:600;">TOTAL DEALS CLOSED</p><h2 style="margin:5px 0 0 0;color:#10b981;">{len(all_deals_list)} Successful</h2></div>', unsafe_allow_html=True)
 
     st.markdown("---")
-    st.info("💡 Properties aur Clients databases mein 'Rent Out', 'House Found' aur 'Print PDF' ke options add ho chuke hain.")
+    st.info("💡 Date tracking aur Agent name validation system ke har kone me add kar diye gaye hain.")
 
 # -----------------------------
-# 2. QUICK ENTRY MODULE
+# 2. QUICK ENTRY MODULE (DATE & AGENT FIXED)
 # -----------------------------
 elif st.session_state.current_nav == "Quick Entry":
     st.title("Quick Entry Wizard")
     tab1, tab2, tab3 = st.tabs(["🏡 House for Rent Entry", "👤 Client Requirements Entry", "🗣️ Staff Daily Field Working Entry"])
+
+    current_timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    current_logged_agent = st.session_state.user
 
     with tab1:
         st.subheader("Add House for Rent")
@@ -248,9 +251,11 @@ elif st.session_state.current_nav == "Quick Entry":
                             "area": area, "price": rent_price, "marla": marla,
                             "property_type": "Rent", "sub_type": category, "status": status,
                             "owner_name": owner_name, "owner_contact": owner_contact,
-                            "visiting_time": f"{visiting_time} {utility_notes}".strip(), "added_by": st.session_state.user
+                            "visiting_time": f"{visiting_time} {utility_notes}".strip(), 
+                            "added_by": current_logged_agent,              # Automatically catches agent name
+                            "created_at": current_timestamp               # Automatically logs current date/time
                         }).execute()
-                        st.success("Rent property saved safely!")
+                        st.success(f"Rent property saved safely by {current_logged_agent.title()} on {current_timestamp}!")
                     except Exception as e: st.error(f"Error: {e}")
 
     with tab2:
@@ -274,9 +279,11 @@ elif st.session_state.current_nav == "Quick Entry":
                         supabase.table("clients").insert({
                             "client_name": client_name, "client_contact": client_contact,
                             "demand_type": demand_type, "max_budget": max_budget,
-                            "preferred_area": combined_pref_details, "status": "Searching"
+                            "preferred_area": combined_pref_details, "status": "Searching",
+                            "added_by": current_logged_agent,              # Automatically catches agent name
+                            "created_at": current_timestamp               # Automatically logs current date/time
                         }).execute()
-                        st.success("Client registered successfully!")
+                        st.success(f"Client registered successfully by {current_logged_agent.title()} on {current_timestamp}!")
                     except Exception as e: st.error(f"Error: {e}")
 
     with tab3:
@@ -291,7 +298,7 @@ elif st.session_state.current_nav == "Quick Entry":
                 st.success("Progress report logged!")
 
 # -----------------------------
-# 3. PROPERTIES DATABASE (BUTTONS & PDF FIXED)
+# 3. PROPERTIES DATABASE (TABLE DISPLAY FIXED)
 # -----------------------------
 elif st.session_state.current_nav == "Properties":
     st.title("🏡 Properties Master Database")
@@ -301,7 +308,9 @@ elif st.session_state.current_nav == "Properties":
         properties = supabase.table("inventory").select("*").ilike("area", f"%{search}%").order("id", desc=True).execute().data
         if properties:
             df_inv = pd.DataFrame(properties)
-            all_cols = ["id", "area", "marla", "property_type", "sub_type", "price", "status", "owner_name", "owner_contact", "visiting_time"]
+            
+            # Ensured Date/Time and Agent Name columns are visible in display
+            all_cols = ["id", "created_at", "added_by", "area", "marla", "property_type", "sub_type", "price", "status", "owner_name", "owner_contact", "visiting_time"]
             display_cols = [c for c in all_cols if c in df_inv.columns]
             
             # Print PDF Report Button for whole view
@@ -313,7 +322,7 @@ elif st.session_state.current_nav == "Properties":
             
             st.dataframe(df_inv[display_cols].style.apply(style_prop_row, axis=1), use_container_width=True, hide_index=True)
             
-            # RESTORED ACTION BUTTONS CONTROL PANEL
+            # ACTION BUTTONS CONTROL PANEL
             st.markdown("### 🛠️ Property Action Controls")
             with st.container(border=True):
                 ac1, ac2, ac3 = st.columns([4, 2, 2])
@@ -337,7 +346,7 @@ elif st.session_state.current_nav == "Properties":
     except Exception as e: st.error(f"Error: {e}")
 
 # -----------------------------
-# 4. CLIENTS DATABASE (BUTTONS & PDF FIXED)
+# 4. CLIENTS DATABASE (TABLE DISPLAY FIXED)
 # -----------------------------
 elif st.session_state.current_nav == "Clients":
     st.title("👥 Registered Clients Database")
@@ -347,7 +356,9 @@ elif st.session_state.current_nav == "Clients":
         clients = supabase.table("clients").select("*").ilike("client_name", f"%{search_client}%").order("id", desc=True).execute().data
         if clients:
             df_clients = pd.DataFrame(clients)
-            all_client_cols = ["id", "client_name", "client_contact", "demand_type", "max_budget", "preferred_area", "status"]
+            
+            # Ensured Date/Time and Agent Name columns are visible in display
+            all_client_cols = ["id", "created_at", "added_by", "client_name", "client_contact", "demand_type", "max_budget", "preferred_area", "status"]
             display_cols = [c for c in all_client_cols if c in df_clients.columns]
             
             # Print PDF Report Button for whole view
@@ -359,7 +370,7 @@ elif st.session_state.current_nav == "Clients":
             
             st.dataframe(df_clients[display_cols].style.apply(style_client_row, axis=1), use_container_width=True, hide_index=True)
             
-            # RESTORED ACTION BUTTONS CONTROL PANEL
+            # ACTION BUTTONS CONTROL PANEL
             st.markdown("### 🛠️ Client Status Update Control Center")
             with st.container(border=True):
                 cc_col1, cc_col2, cc_col3 = st.columns([4, 3, 3])
@@ -383,7 +394,7 @@ elif st.session_state.current_nav == "Clients":
     except Exception as e: st.error(f"Error handling system display: {e}")
 
 # -----------------------------
-# 5. DEAL DONE REGISTRY (PDF ADDED)
+# 5. DEAL DONE REGISTRY
 # -----------------------------
 elif st.session_state.current_nav == "Deal Done Registry":
     st.title("🤝 Deal Closure & Done Registry")
@@ -428,8 +439,11 @@ elif st.session_state.current_nav == "Deal Done Registry":
                     except: pass
 
                     new_deal_object = {
+                        "created_at": datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
                         "client_name": final_client_str.split("-")[-1].strip() if "-" in final_client_str else final_client_str,
-                        "property_details": final_house_str, "agent_name": closing_agent, "commission_earned": deal_commission
+                        "property_details": final_house_str, 
+                        "agent_name": closing_agent, 
+                        "commission_earned": deal_commission
                     }
                     try:
                         supabase.table("deals").insert(new_deal_object).execute()
@@ -442,7 +456,7 @@ elif st.session_state.current_nav == "Deal Done Registry":
                 except Exception as e: st.error(f"System Error: {e}")
 
 # -----------------------------
-# 6. DEALS HISTORY MODULE (PDF ADDED)
+# 6. DEALS HISTORY MODULE
 # -----------------------------
 elif st.session_state.current_nav == "Deals History":
     st.title("📜 Successful Closed Deals History Log")
@@ -455,7 +469,7 @@ elif st.session_state.current_nav == "Deals History":
     else: st.info("System Registry Dashboard khali hai.")
 
 # -----------------------------
-# 7. WORKING PROGRESS MODULE (PDF ADDED)
+# 7. WORKING PROGRESS MODULE
 # -----------------------------
 elif st.session_state.current_nav == "Working Progress":
     st.title("📈 Staff Daily Progress Reports")
@@ -505,7 +519,7 @@ elif st.session_state.current_nav == "Finance":
             t = st.selectbox("Type", ["Income", "Expense"])
             amt, desc = st.number_input("Amount", min_value=0), st.text_area("Remarks")
             if st.form_submit_button("Save Ledger Row"):
-                supabase.table("accounts").insert({"type": t, "amount": amt, "description": desc}).execute()
+                supabase.table("accounts").insert({"type": t, "amount": amt, "description": desc, "created_at": datetime.now().strftime('%Y-%m-%d %H:%M:%S')}).execute()
                 st.success("Recorded.")
                 st.rerun()
 
