@@ -15,7 +15,103 @@ st.set_page_config(
 
 # -----------------------------
 # CUSTOM CSS FOR REFINED FINISHING
+
+# -----------------------------# -----------------------------
+# CUSTOM CSS FOR REFINED FINISHING (MOBILE RESPONSIVE FIX)
 # -----------------------------
+st.markdown("""
+<style>
+/* Background & Core App Layout */
+.stApp { background-color: #f8fafc; }
+.block-container { padding-top: 1.5rem; padding-bottom: 2rem; }
+
+/* Elegant Minimalist Dashboard Cards */
+.metric-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1.2rem;
+    margin-bottom: 2rem;
+}
+.kpi-card {
+    flex: 1;
+    min-width: 220px;
+    background: #ffffff; 
+    padding: 20px; 
+    border-radius: 16px;
+    box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.05), 0 2px 4px -2px rgb(0 0 0 / 0.05);
+    border: 1px solid #e2e8f0;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.kpi-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+}
+.kpi-label {
+    margin: 0;
+    color: #64748b;
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+.kpi-value {
+    margin: 6px 0 0 0;
+    color: #0f172a;
+    font-size: 24px;
+    font-weight: 800;
+}
+
+/* Info and Content Boxes */
+.report-box {
+    background-color: #ffffff;
+    padding: 18px;
+    border-radius: 12px;
+    border-left: 4px solid #b45309;
+    margin-bottom: 12px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+}
+.about-box {
+    background-color: #f1f5f9;
+    padding: 16px;
+    border-radius: 12px;
+    font-size: 13px;
+    color: #334155;
+    border: 1px solid #e2e8f0;
+    margin-top: 20px;
+    line-height: 1.5;
+}
+
+/* 📱 MOBILE RESPONSIVE & SIDEBAR STICKY TUNING */
+@media (max-width: 768px) {
+    /* Yeh force karega ki mobile par click ke baad bhi sidebar gayab na ho */
+    [data-testid="stSidebarCollapsedControl"] {
+        display: block !important;
+    }
+    section[data-testid="stSidebar"] {
+        left: 0 !important;
+        position: fixed !important;
+        z-index: 999999 !important;
+    }
+    
+    .metric-container {
+        flex-direction: column;
+        gap: 0.8rem;
+    }
+    .kpi-card {
+        padding: 16px;
+        min-width: 100%;
+    }
+    .kpi-value {
+        font-size: 20px;
+    }
+    .block-container {
+        padding-top: 1rem;
+        padding-left: 0.8rem;
+        padding-right: 0.8rem;
+    }
+}
+</style>
+""", unsafe_allow_html=True)
 
 
 # -----------------------------
