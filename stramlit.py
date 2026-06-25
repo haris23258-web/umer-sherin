@@ -33,11 +33,6 @@ st.markdown("""
     margin-bottom: 10px;
     box-shadow: 0 1px 2px rgba(0,0,0,0.05);
 }
-.action-card {
-    background: white; padding: 15px; border-radius: 8px;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.05); margin-bottom: 12px;
-    border: 1px solid #e2e8f0;
-}
 </style>
 """, unsafe_allow_html=True)
 
@@ -128,7 +123,7 @@ with st.sidebar:
         st.rerun()
 
 # -----------------------------
-# 1. DASHBOARD MODULE
+# DASHBOARD MODULE
 # -----------------------------
 if st.session_state.current_nav == "Dashboard":
     st.title("📊 Portal Overview & Staff Analytics")
@@ -265,7 +260,7 @@ elif st.session_state.current_nav == "Quick Entry":
                     st.rerun()
 
 # -----------------------------
-# 3. FIXED PROPERTIES MODULE WITH BUTTONS
+# RESTORED PROPERTIES MASTER DATABASE (TABLE VIEW WITH CONTROL BAR)
 # -----------------------------
 elif st.session_state.current_nav == "Properties":
     st.title("🏡 Properties Master Database")
@@ -274,89 +269,101 @@ elif st.session_state.current_nav == "Properties":
     try:
         properties = supabase.table("inventory").select("*").ilike("area", f"%{search}%").order("id", desc=True).execute().data
         if properties:
-            for item in properties:
-                # Layout card display with individual controls
-                status_color = "#166534" if item["status"] in ["Rent Out", "Sold"] else "#1e3a8a"
-                st.markdown(f"""
-                <div class="action-card">
-                    <span style="float:right; background:{status_color}; color:white; padding:2px 8px; border-radius:4px; font-size:12px; font-weight:bold;">{item['status']}</span>
-                    <h4 style="margin:0; color:#1e293b;">📍 {item['marla']} Marla - {item['area']} ({item['property_type']})</h4>
-                    <p style="margin:5px 0; font-size:14px; color:#475569;">
-                        <b>Price:</b> {item['price']:,} PKR | <b>Owner:</b> {item['owner_name']} ({item['owner_contact']}) | <b>Timing:</b> {item['visiting_time']}
-                    </p>
-                </div>
-                """, unsafe_allow_html=True)
+            df_inv = pd.DataFrame(properties)
+            all_cols = ["id", "area", "marla", "property_type", "sub_type", "price", "status", "owner_name", "owner_contact", "visiting_time"]
+            display_cols = [c for c in all_cols if c in df_inv.columns]
+            
+            # Highlight function for complete grid visual representation
+            def style_prop_row(row):
+                return ['background-color: #dcfce7; color: #166534; font-weight: bold;'] * len(row) if row.status in ["Rent Out", "Sold"] else [''] * len(row)
+            
+            st.dataframe(df_inv[display_cols].style.apply(style_prop_row, axis=1), use_container_width=True, hide_index=True)
+            
+            # Clean Action Operations Panel below Grid table
+            st.markdown("### 🛠️ Property Action Panel")
+            with st.container(border=True):
+                ac1, ac2, ac3 = st.columns([4, 2, 2])
+                prop_options = {f"ID: {p['id']} - {p['marla']} Marla ({p['area']})": p['id'] for p in properties}
+                selected_p_label = ac1.selectbox("Select Unit to Modify Status / Remove:", list(prop_options.keys()))
+                selected_p_id = prop_options[selected_p_label]
                 
-                # Action Button Rows
-                b1, b2, _ = st.columns([1.5, 1.5, 7])
-                if item["status"] not in ["Rent Out", "Sold"]:
-                    if b1.button("✅ Mark Rent Out", key=f"rent_{item['id']}"):
-                        supabase.table("inventory").update({"status": "Rent Out"}).eq("id", item["id"]).execute()
-                        log_activity(st.session_state.user, f"Marked Property ID {item['id']} as Rent Out", item['area'])
-                        st.success("Updated status!")
+                # Dynamic matching target data lookup
+                current_unit = next((item for item in properties if item["id"] == selected_p_id), None)
+                
+                if current_unit and current_unit["status"] not in ["Rent Out", "Sold"]:
+                    if ac2.button("✅ Mark Selected Rent Out", use_container_width=True):
+                        supabase.table("inventory").update({"status": "Rent Out"}).eq("id", selected_p_id).execute()
+                        log_activity(st.session_state.user, f"Marked Property ID {selected_p_id} as Rent Out", current_unit['area'])
+                        st.success("Property status set to Rent Out!")
                         st.rerun()
-                
-                if b2.button("🚨 Delete Unit", key=f"del_prop_{item['id']}"):
-                    supabase.table("inventory").delete().eq("id", item["id"]).execute()
-                    log_activity(st.session_state.user, f"Deleted Property ID {item['id']}", item['area'])
-                    st.warning("Property deleted.")
+                else:
+                    ac2.info("Selected item already closed.")
+                    
+                if ac3.button("🚨 Delete Selected Unit", use_container_width=True):
+                    supabase.table("inventory").delete().eq("id", selected_p_id).execute()
+                    log_activity(st.session_state.user, f"Deleted Property ID {selected_p_id}", current_unit['area'] if current_unit else "N/A")
+                    st.warning("Property removed successfully.")
                     st.rerun()
-                st.divider()
         else: st.info("No matching properties found.")
     except Exception as e: st.error(f"Error: {e}")
 
 # -----------------------------
-# 4. FIXED CLIENTS MODULE WITH ACTION & LAST TALK BUTTONS
+# RESTORED CLIENTS DATABASE (TABLE VIEW WITH INTERACTION INTERACTIONS)
 # -----------------------------
 elif st.session_state.current_nav == "Clients":
-    st.title("👥 Registered Clients & Interactions Database")
+    st.title("👥 Registered Clients & Follow-up Tracking")
     search_client = st.text_input("🔍 Search Client by Name")
     
     try:
         clients = supabase.table("clients").select("*").ilike("client_name", f"%{search_client}%").order("id", desc=True).execute().data
         if clients:
-            for c in clients:
-                status_tag_color = "#166534" if c["status"] == "House Found" else "#0ea5e9"
-                last_talk = c.get("last_interaction", "Koi baat record nahi hui abhi tak.")
+            df_clients = pd.DataFrame(clients)
+            
+            # Map required columns explicitly including last interaction notes
+            all_client_cols = ["id", "client_name", "client_contact", "demand_type", "max_budget", "preferred_area", "status", "last_interaction"]
+            display_cols = [c for c in all_client_cols if c in df_clients.columns]
+            
+            def style_client_row(row):
+                return ['background-color: #dcfce7; color: #166534; font-weight: bold;'] * len(row) if row.status == "House Found" else [''] * len(row)
+            
+            # Main Table presentation containing the requested interactions data column directly
+            st.dataframe(df_clients[display_cols].style.apply(style_client_row, axis=1), use_container_width=True, hide_index=True)
+            
+            st.markdown("### 🗣️ Client Follow-up Update Control Center")
+            with st.container(border=True):
+                cc_col1, cc_col2 = st.columns([4, 6])
+                client_options = {f"ID: {c['id']} - {c['client_name']}": c['id'] for c in clients}
+                sel_client_label = cc_col1.selectbox("Select Target Client:", list(client_options.keys()))
+                sel_client_id = client_options[sel_client_label]
                 
-                st.markdown(f"""
-                <div class="action-card" style="border-left: 5px solid {status_tag_color};">
-                    <span style="float:right; background:{status_tag_color}; color:white; padding:2px 8px; border-radius:4px; font-size:12px; font-weight:bold;">{c['status']}</span>
-                    <h4 style="margin:0; color:#1e293b;">👤 Name: {c['client_name']} ({c['client_contact']})</h4>
-                    <p style="margin:4px 0; font-size:14px; color:#475569;">
-                        <b>Demand:</b> {c['demand_type']} | <b>Budget Max:</b> {c['max_budget']:,} PKR | <b>Preferred Area:</b> {c['preferred_area']}
-                    </p>
-                    <div style="background:#f1f5f9; padding:8px; border-radius:4px; margin-top:8px; font-size:13px; color:#334155;">
-                        🗣️ <b>Last Time Kya Baat Hui Thi:</b> {last_talk}
-                    </div>
-                </div>
-                """, unsafe_allow_html=True)
+                current_client_record = next((x for x in clients if x["id"] == sel_client_id), None)
                 
-                # Multi-Action Row for Client management
-                col1, col2, col3 = st.columns([2, 2, 6])
+                # Note Logging Interaction Box
+                update_text_note = cc_col2.text_input("Last Time Kya Baat Hui Thi (Enter update note):", 
+                                                      value=current_client_record.get('last_interaction', '') if current_client_record else "",
+                                                      placeholder="e.g. He likes the Phase 5 house but budget issue.")
                 
-                # Follow up Note update input field inline
-                new_note = col3.text_input("Update Last Interaction Text Note:", key=f"note_val_{c['id']}", placeholder="Type latest conversation update...")
-                if new_note:
-                    if col3.button("💾 Save Talk Note", key=f"save_note_{c['id']}"):
-                        supabase.table("clients").update({"last_interaction": new_note}).eq("id", c["id"]).execute()
-                        st.success("Interaction note logged safely!")
+                act_c1, act_c2, act_c3 = st.columns([3, 3, 4])
+                if act_c1.button("💾 Save Conversation Update Note", use_container_width=True):
+                    if update_text_note:
+                        supabase.table("clients").update({"last_interaction": update_text_note}).eq("id", sel_client_id).execute()
+                        st.success("Interaction log saved to table column!")
                         st.rerun()
-
-                if c["status"] != "House Found":
-                    if col1.button("🤝 House Found", key=f"found_{c['id']}"):
-                        supabase.table("clients").update({"status": "House Found"}).eq("id", c["id"]).execute()
-                        log_activity(st.session_state.user, f"Marked Client {c['client_name']} as House Found", c['preferred_area'])
-                        st.success("Status updated!")
+                    else: st.warning("Please type something to update.")
+                
+                if current_client_record and current_client_record["status"] != "House Found":
+                    if act_c2.button("🤝 Mark Status: House Found", use_container_width=True):
+                        supabase.table("clients").update({"status": "House Found"}).eq("id", sel_client_id).execute()
+                        log_activity(st.session_state.user, f"Marked Client {current_client_record['client_name']} as House Found", current_client_record['preferred_area'])
+                        st.success("Status marked as Found!")
                         st.rerun()
-                        
-                if col2.button("🚨 Delete Client", key=f"del_cli_{c['id']}"):
-                    supabase.table("clients").delete().eq("id", c["id"]).execute()
-                    log_activity(st.session_state.user, f"Deleted Client data for {c['client_name']}", c['preferred_area'])
-                    st.warning("Client deleted.")
+                else: act_c2.info("Deal closure already verified.")
+                
+                if act_c3.button("🚨 Delete Client From System Database", use_container_width=True):
+                    supabase.table("clients").delete().eq("id", sel_client_id).execute()
+                    log_activity(st.session_state.user, f"Deleted Client {current_client_record['client_name'] if current_client_record else 'N/A'}", "Database Audit")
+                    st.warning("Client profile deleted.")
                     st.rerun()
-                    
-                st.divider()
         else: st.info("No registered clients match this name.")
     except Exception as e: st.error(f"Error: {e}")
 
