@@ -14,33 +14,66 @@ st.set_page_config(
 )
 
 # -----------------------------
-# CUSTOM CSS FOR HIGHLIGHTS & UI
+# CUSTOM CSS FOR REFINED FINISHING
 # -----------------------------
 st.markdown("""
 <style>
+/* Background & Core App Layout */
 .stApp { background-color: #f8fafc; }
 .block-container { padding-top: 1.5rem; padding-bottom: 2rem; }
-.kpi-card {
-    background: white; padding: 20px; border-radius: 12px;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.1); border-left: 5px solid #1e3a8a;
-    margin-bottom: 15px;
+
+/* Elegant Minimalist Dashboard Cards */
+.metric-container {
+    display: flex;
+    gap: 1.5rem;
+    margin-bottom: 2rem;
 }
+.kpi-card {
+    flex: 1;
+    background: #ffffff; 
+    padding: 24px; 
+    border-radius: 16px;
+    box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.05), 0 2px 4px -2px rgb(0 0 0 / 0.05);
+    border: 1px solid #e2e8f0;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.kpi-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+}
+.kpi-label {
+    margin: 0;
+    color: #64748b;
+    font-size: 13px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+.kpi-value {
+    margin: 8px 0 0 0;
+    color: #0f172a;
+    font-size: 28px;
+    font-weight: 800;
+}
+
+/* Info and Content Boxes */
 .report-box {
     background-color: #ffffff;
-    padding: 15px;
-    border-radius: 8px;
-    border-left: 4px solid #0ea5e9;
-    margin-bottom: 10px;
-    box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+    padding: 18px;
+    border-radius: 12px;
+    border-left: 4px solid #b45309;
+    margin-bottom: 12px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
 }
 .about-box {
     background-color: #f1f5f9;
-    padding: 12px;
-    border-radius: 8px;
+    padding: 16px;
+    border-radius: 12px;
     font-size: 13px;
     color: #334155;
     border: 1px solid #e2e8f0;
-    margin-top: 15px;
+    margin-top: 20px;
+    line-height: 1.5;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -141,12 +174,13 @@ if "current_nav" not in st.session_state:
     st.session_state.current_nav = "Dashboard"
 
 with st.sidebar:
+    # Integrated user's beautiful golden logo file
     try:
-        st.image("logo.png", width=150)
+        st.image("mehfooz deewaryn logo WITH SLOGEN.png", use_container_width=True)
     except:
-        st.markdown("<h2 style='color:#1e3a8a; margin-bottom:0;'>🏗️ DEEWARYN.COM</h2>", unsafe_allow_html=True)
+        st.markdown("<h2 style='color:#b45309; margin-bottom:0;'>🏗️ DEEWARYN.COM</h2>", unsafe_allow_html=True)
     
-    st.write(f"👤 **{st.session_state.user.title()}** ({st.session_state.role})")
+    st.markdown(f"<div style='text-align: center; margin-bottom: 15px;'>👤 <b>{st.session_state.user.title()}</b> ({st.session_state.role})</div>", unsafe_allow_html=True)
     st.divider()
     
     modules = [{"name": "Dashboard", "icon": "📊"}]
@@ -195,10 +229,10 @@ with st.sidebar:
         st.rerun()
 
 # -----------------------------
-# 1. DASHBOARD MODULE
+# 1. DASHBOARD MODULE (REFINISHED UI)
 # -----------------------------
 if st.session_state.current_nav == "Dashboard":
-    st.title("📊 DEEWARYN.COM - Portal Overview")
+    st.title("📊 DEEWARYN.COM - Main Dashboard")
     
     inventory, clients_data, total_visits = [], [], 0
     try:
@@ -208,15 +242,27 @@ if st.session_state.current_nav == "Dashboard":
         total_visits = len(visits_data) if visits_data else 0
     except: pass
 
-    m1, m2, m3, m4 = st.columns(4)
-    with m1:
-        st.markdown(f'<div class="kpi-card"><p style="margin:0;color:#64748b;font-size:14px;font-weight:600;">TOTAL PROPERTIES</p><h2 style="margin:5px 0 0 0;color:#1e3a8a;">{len(inventory) if inventory else 0} Units</h2></div>', unsafe_allow_html=True)
-    with m2:
-        st.markdown(f'<div class="kpi-card" style="border-left-color:#0ea5e9;"><p style="margin:0;color:#64748b;font-size:14px;font-weight:600;">REGISTERED CLIENTS</p><h2 style="margin:5px 0 0 0;color:#0ea5e9;">{len(clients_data) if clients_data else 0} Active</h2></div>', unsafe_allow_html=True)
-    with m3:
-        st.markdown(f'<div class="kpi-card" style="border-left-color:#f59e0b;"><p style="margin:0;color:#64748b;font-size:14px;font-weight:600;">TOTAL VISITS DONE</p><h2 style="margin:5px 0 0 0;color:#f59e0b;">{total_visits} Visits</h2></div>', unsafe_allow_html=True)
-    with m4:
-        st.markdown(f'<div class="kpi-card" style="border-left-color:#10b981;"><p style="margin:0;color:#64748b;font-size:14px;font-weight:600;">DEALS CLOSED</p><h2 style="margin:5px 0 0 0;color:#10b981;">{len(all_deals_list)} Units</h2></div>', unsafe_allow_html=True)
+    # Elegant grid-based KPI visual display
+    st.markdown(f"""
+    <div class="metric-container">
+        <div class="kpi-card" style="border-top: 4px solid #0f172a;">
+            <p class="kpi-label">Total Properties</p>
+            <p class="kpi-value">{len(inventory) if inventory else 0} Units</p>
+        </div>
+        <div class="kpi-card" style="border-top: 4px solid #0284c7;">
+            <p class="kpi-label">Registered Clients</p>
+            <p class="kpi-value">{len(clients_data) if clients_data else 0} Active</p>
+        </div>
+        <div class="kpi-card" style="border-top: 4px solid #d97706;">
+            <p class="kpi-label">Total Visits Done</p>
+            <p class="kpi-value">{total_visits} Visits</p>
+        </div>
+        <div class="kpi-card" style="border-top: 4px solid #16a34a;">
+            <p class="kpi-label">Deals Closed</p>
+            <p class="kpi-value">{len(all_deals_list)} Units</p>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
 
     st.markdown("---")
     if st.session_state.role == "Viewer":
@@ -309,7 +355,7 @@ elif st.session_state.current_nav == "Quick Entry":
             with st.form("visit_entry_form", clear_on_submit=True):
                 v_c1, v_c2 = st.columns(2)
                 v_client = v_c1.text_input("Client Name (Whom you showed the house)")
-                v_contact = v_c2.text_input("Client Contact Number / Mobile") # Added visitor contact input
+                v_contact = v_c2.text_input("Client Contact Number / Mobile")
                 v_property = st.text_input("Property / House Visited (Area & Details)")
                 v_feedback = st.text_area("Client Feedback (e.g., Token promised, Disliked due to gas issue, Token given, etc.)")
                 
@@ -317,7 +363,6 @@ elif st.session_state.current_nav == "Quick Entry":
                     if not v_client or not v_property: st.warning("Please fill Client and Property details.")
                     else:
                         try:
-                            # Contact feedback ke sath ya direct store ho sakta hai (Aasan approach ke liye feedback ya details ke sath mix kar ke save kar rahe hain taake purane table schema ko distrub na karein agar alter query run na ki ho)
                             final_feedback_str = f"[Contact: {v_contact}] {v_feedback}".strip() if v_contact else v_feedback
                             supabase.table("property_visits").insert({
                                 "client_name": v_client,
@@ -430,11 +475,10 @@ elif st.session_state.current_nav == "Clients":
     except Exception as e: st.error(f"Error handling system display: {e}")
 
 # -----------------------------
-# 5. PROPERTY VISITS LOG (WITH DELETE OPTION)
+# 5. PROPERTY VISITS LOG (WITH REFINED DELETE)
 # -----------------------------
 elif st.session_state.current_nav == "Property Visits Log":
     st.title("📋 Staff Daily Property Visits Record Room")
-    st.write("Yahan Sawer Khan aur Tariq ki un tamam visits ka record hai jo unho ne clients ko ghar dikhane ke liye ki hain.")
     
     try:
         visits = supabase.table("property_visits").select("*").order("id", desc=True).execute().data
@@ -448,7 +492,7 @@ elif st.session_state.current_nav == "Property Visits Log":
             
             st.dataframe(df_visits_display, use_container_width=True, hide_index=True)
             
-            # --- DELETE VISIT SECTION ---
+            # Delete Control Widget
             if st.session_state.role != "Viewer":
                 st.markdown("### 🛠️ Remove/Delete Visit Entry")
                 with st.container(border=True):
@@ -527,14 +571,13 @@ elif st.session_state.current_nav == "Deal Done Registry":
                     except Exception as e: st.error(f"System Error: {e}")
 
 # -----------------------------
-# 7. DEALS HISTORY MODULE (WITH DELETE OPTION)
+# 7. DEALS HISTORY MODULE (WITH REFINED DELETE)
 # -----------------------------
 elif st.session_state.current_nav == "Deals History":
     st.title("📜 Successful Closed Deals History Log")
     if all_deals_list:
         df_deals_display = pd.DataFrame(all_deals_list)
         
-        # Select target columns for output clean look
         target_cols = ["id", "created_at", "client_name", "property_details", "agent_name", "commission_earned"]
         active_cols = [col for col in target_cols if col in df_deals_display.columns]
         
@@ -543,7 +586,7 @@ elif st.session_state.current_nav == "Deals History":
         
         st.dataframe(df_deals_display[active_cols], use_container_width=True, hide_index=True)
         
-        # --- DELETE DEAL SECTION ---
+        # Delete Deal Control Widget
         if st.session_state.role != "Viewer":
             st.markdown("### 🛠️ Remove/Delete Closed Deal Record")
             with st.container(border=True):
@@ -564,10 +607,10 @@ elif st.session_state.current_nav == "Deals History":
         st.info("System Registry Dashboard khali hai.")
 
 # -----------------------------
-# 8. WORKING PROGRESS MODULE (STAFF LOGS)
+# 8. WORKING PROGRESS MODULE
 # -----------------------------
 elif st.session_state.current_nav == "Working Progress":
-    st.title("📈 Staff Daily Progress Reports (Sawer Khan & Tariq)")
+    st.title("📈 Staff Daily Progress Reports")
     try:
         logs = supabase.table("activity_logs").select("*").order("id", desc=True).execute().data
         if logs:
