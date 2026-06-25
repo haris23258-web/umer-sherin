@@ -14,9 +14,7 @@ st.set_page_config(
 )
 
 # -----------------------------
-# CUSTOM CSS FOR REFINED FINISHING
-# -----------------------------
-# CUSTOM CSS FOR REFINED FINISHING (MOBILE RESPONSIVE FIX)
+# CUSTOM CSS FOR REFINED FINISHING (STABLE MOBILE FIX)
 # -----------------------------
 st.markdown("""
 <style>
@@ -27,23 +25,18 @@ st.markdown("""
 /* Elegant Minimalist Dashboard Cards */
 .metric-container {
     display: flex;
-    flex-wrap: wrap;
+    flex-wrap: wrap; 
     gap: 1.2rem;
     margin-bottom: 2rem;
 }
 .kpi-card {
     flex: 1;
-    min-width: 220px;
+    min-width: 220px; 
     background: #ffffff; 
     padding: 20px; 
     border-radius: 16px;
     box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.05), 0 2px 4px -2px rgb(0 0 0 / 0.05);
     border: 1px solid #e2e8f0;
-    transition: transform 0.2s ease, box-shadow 0.2s ease;
-}
-.kpi-card:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
 }
 .kpi-label {
     margin: 0;
@@ -67,209 +60,6 @@ st.markdown("""
     border-radius: 12px;
     border-left: 4px solid #b45309;
     margin-bottom: 12px;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-}
-.about-box {
-    background-color: #f1f5f9;
-    padding: 16px;
-    border-radius: 12px;
-    font-size: 13px;
-    color: #334155;
-    border: 1px solid #e2e8f0;
-    margin-top: 20px;
-    line-height: 1.5;
-}
-
-/* 📱 MOBILE RESPONSIVE & SIDEBAR STICKY TUNING */
-@media (max-width: 768px) {
-    /* Yeh force karega ki mobile par click ke baad bhi sidebar gayab na ho */
-    [data-testid="stSidebarCollapsedControl"] {
-        display: block !important;
-    }
-    section[data-testid="stSidebar"] {
-        left: 0 !important;
-        position: fixed !important;
-        z-index: 999999 !important;
-    }
-    
-    .metric-container {
-        flex-direction: column;
-        gap: 0.8rem;
-    }
-    .kpi-card {
-        padding: 16px;
-        min-width: 100%;
-    }
-    .kpi-value {
-        font-size: 20px;
-    }
-    .block-container {
-        padding-top: 1rem;
-        padding-left: 0.8rem;
-        padding-right: 0.8rem;
-    }
-}
-</style>
-""", unsafe_allow_html=True)
-# -----------------------------# -----------------------------
-# CUSTOM CSS FOR REFINED FINISHING (MOBILE RESPONSIVE FIX)
-# -----------------------------
-st.markdown("""
-<style>
-/* Background & Core App Layout */
-.stApp { background-color: #f8fafc; }
-.block-container { padding-top: 1.5rem; padding-bottom: 2rem; }
-
-/* Elegant Minimalist Dashboard Cards */
-.metric-container {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 1.2rem;
-    margin-bottom: 2rem;
-}
-.kpi-card {
-    flex: 1;
-    min-width: 220px;
-    background: #ffffff; 
-    padding: 20px; 
-    border-radius: 16px;
-    box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.05), 0 2px 4px -2px rgb(0 0 0 / 0.05);
-    border: 1px solid #e2e8f0;
-    transition: transform 0.2s ease, box-shadow 0.2s ease;
-}
-.kpi-card:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
-}
-.kpi-label {
-    margin: 0;
-    color: #64748b;
-    font-size: 12px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-}
-.kpi-value {
-    margin: 6px 0 0 0;
-    color: #0f172a;
-    font-size: 24px;
-    font-weight: 800;
-}
-
-/* Info and Content Boxes */
-.report-box {
-    background-color: #ffffff;
-    padding: 18px;
-    border-radius: 12px;
-    border-left: 4px solid #b45309;
-    margin-bottom: 12px;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-}
-.about-box {
-    background-color: #f1f5f9;
-    padding: 16px;
-    border-radius: 12px;
-    font-size: 13px;
-    color: #334155;
-    border: 1px solid #e2e8f0;
-    margin-top: 20px;
-    line-height: 1.5;
-}
-
-/* 📱 MOBILE RESPONSIVE & SIDEBAR STICKY TUNING */
-@media (max-width: 768px) {
-    /* Yeh force karega ki mobile par click ke baad bhi sidebar gayab na ho */
-    [data-testid="stSidebarCollapsedControl"] {
-        display: block !important;
-    }
-    section[data-testid="stSidebar"] {
-        left: 0 !important;
-        position: fixed !important;
-        z-index: 999999 !important;
-    }
-    
-    .metric-container {
-        flex-direction: column;
-        gap: 0.8rem;
-    }
-    .kpi-card {
-        padding: 16px;
-        min-width: 100%;
-    }
-    .kpi-value {
-        font-size: 20px;
-    }
-    .block-container {
-        padding-top: 1rem;
-        padding-left: 0.8rem;
-        padding-right: 0.8rem;
-    }
-}
-</style>
-""", unsafe_allow_html=True)
-
-
-# -----------------------------
-# DATABASE CONNECTION
-# -----------------------------
-try:
-    supabase = create_client(st.secrets["SUPABASE_URL"], st.secrets["SUPABASE_KEY"])
-except Exception as e:
-    st.error(f"Database connection failed: {e}")
-    st.stop()
-# -----------------------------
-# CUSTOM CSS FOR REFINED FINISHING (MOBILE RESPONSIVE FIX)
-# -----------------------------
-st.markdown("""
-<style>
-/* Background & Core App Layout */
-.stApp { background-color: #f8fafc; }
-.block-container { padding-top: 1.5rem; padding-bottom: 2rem; }
-
-/* Elegant Minimalist Dashboard Cards */
-.metric-container {
-    display: flex;
-    flex-wrap: wrap; /* Allows cards to wrap on smaller screens */
-    gap: 1.2rem;
-    margin-bottom: 2rem;
-}
-.kpi-card {
-    flex: 1;
-    min-width: 220px; /* Prevents cards from crushing into squished vertical bars */
-    background: #ffffff; 
-    padding: 20px; 
-    border-radius: 16px;
-    box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.05), 0 2px 4px -2px rgb(0 0 0 / 0.05);
-    border: 1px solid #e2e8f0;
-    transition: transform 0.2s ease, box-shadow 0.2s ease;
-}
-.kpi-card:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
-}
-.kpi-label {
-    margin: 0;
-    color: #64748b;
-    font-size: 12px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-}
-.kpi-value {
-    margin: 6px 0 0 0;
-    color: #0f172a;
-    font-size: 24px;
-    font-weight: 800;
-}
-
-/* Info and Content Boxes */
-.report-box {
-    background-color: #ffffff;
-    padding: 18px;
-    border-radius: 12px;
-    border-left: 4px solid #b45309;
-    margin-bottom: 12px;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
 }
 .about-box {
     background-color: #f1f5f9;
@@ -285,24 +75,39 @@ st.markdown("""
 /* 📱 MOBILE RESPONSIVE TUNING */
 @media (max-width: 768px) {
     .metric-container {
-        flex-direction: column; /* Stacks cards vertically on mobile */
+        flex-direction: column; 
         gap: 0.8rem;
     }
     .kpi-card {
-        padding: 16px; /* Reduced padding for mobile to save space */
+        padding: 16px; 
         min-width: 100%;
     }
     .kpi-value {
-        font-size: 20px; /* Slightly smaller text for compact layout */
+        font-size: 20px; 
     }
     .block-container {
         padding-top: 1rem;
         padding-left: 0.8rem;
         padding-right: 0.8rem;
     }
+    /* Mobile par button sizing control */
+    .stButton button {
+        padding: 10px 5px !important;
+        font-size: 14px !important;
+    }
 }
 </style>
 """, unsafe_allow_html=True)
+
+# -----------------------------
+# DATABASE CONNECTION
+# -----------------------------
+try:
+    supabase = create_client(st.secrets["SUPABASE_URL"], st.secrets["SUPABASE_KEY"])
+except Exception as e:
+    st.error(f"Database connection failed: {e}")
+    st.stop()
+
 # -----------------------------
 # HELPERS & PDF GENERATOR
 # -----------------------------
@@ -348,10 +153,10 @@ def convert_df_to_pdf_html(df, title):
 # LOGIN SYSTEM
 # -----------------------------
 USER_DB = {
-    "sami": {"role": "Viewer", "pin": "sami786"},       # CEO / Viewer Role
-    "umer": {"role": "Viewer", "pin": "umer123"},       # Owner / Viewer Role
-    "sawer khan": {"role": "Agent", "pin": "sawer123"}, # Agent Role
-    "tariq": {"role": "Agent", "pin": "tariq456"}       # Agent Role
+    "sami": {"role": "Viewer", "pin": "sami786"},       
+    "umer": {"role": "Viewer", "pin": "umer123"},       
+    "sawer khan": {"role": "Agent", "pin": "sawer123"}, 
+    "tariq": {"role": "Agent", "pin": "tariq456"}       
 }
 
 if "authenticated" not in st.session_state:
@@ -375,7 +180,6 @@ if not st.session_state.authenticated:
 if "local_deals" not in st.session_state:
     st.session_state.local_deals = []
 
-# Pre-fetch baseline data safely
 all_deals_list = []
 try:
     db_deals = supabase.table("deals").select("*").execute().data
@@ -390,7 +194,6 @@ if "current_nav" not in st.session_state:
     st.session_state.current_nav = "Dashboard"
 
 with st.sidebar:
-    # Integrated user's beautiful golden logo file
     try:
         st.image("mehfooz deewaryn logo WITH SLOGEN.png", use_container_width=True)
     except:
@@ -400,7 +203,6 @@ with st.sidebar:
     st.divider()
     
     modules = [{"name": "Dashboard", "icon": "📊"}]
-    
     if st.session_state.role != "Viewer":
         modules.append({"name": "Quick Entry", "icon": "➕"})
         
@@ -445,7 +247,7 @@ with st.sidebar:
         st.rerun()
 
 # -----------------------------
-# 1. DASHBOARD MODULE (REFINISHED UI)
+# 1. DASHBOARD MODULE
 # -----------------------------
 if st.session_state.current_nav == "Dashboard":
     st.title("📊 DEEWARYN.COM - Main Dashboard")
@@ -458,7 +260,6 @@ if st.session_state.current_nav == "Dashboard":
         total_visits = len(visits_data) if visits_data else 0
     except: pass
 
-    # Elegant grid-based KPI visual display
     st.markdown(f"""
     <div class="metric-container">
         <div class="kpi-card" style="border-top: 4px solid #0f172a;">
@@ -691,7 +492,7 @@ elif st.session_state.current_nav == "Clients":
     except Exception as e: st.error(f"Error handling system display: {e}")
 
 # -----------------------------
-# 5. PROPERTY VISITS LOG (WITH REFINED DELETE)
+# 5. PROPERTY VISITS LOG
 # -----------------------------
 elif st.session_state.current_nav == "Property Visits Log":
     st.title("📋 Staff Daily Property Visits Record Room")
@@ -708,7 +509,6 @@ elif st.session_state.current_nav == "Property Visits Log":
             
             st.dataframe(df_visits_display, use_container_width=True, hide_index=True)
             
-            # Delete Control Widget
             if st.session_state.role != "Viewer":
                 st.markdown("### 🛠️ Remove/Delete Visit Entry")
                 with st.container(border=True):
@@ -787,7 +587,7 @@ elif st.session_state.current_nav == "Deal Done Registry":
                     except Exception as e: st.error(f"System Error: {e}")
 
 # -----------------------------
-# 7. DEALS HISTORY MODULE (WITH REFINED DELETE)
+# 7. DEALS HISTORY MODULE
 # -----------------------------
 elif st.session_state.current_nav == "Deals History":
     st.title("📜 Successful Closed Deals History Log")
@@ -802,7 +602,6 @@ elif st.session_state.current_nav == "Deals History":
         
         st.dataframe(df_deals_display[active_cols], use_container_width=True, hide_index=True)
         
-        # Delete Deal Control Widget
         if st.session_state.role != "Viewer":
             st.markdown("### 🛠️ Remove/Delete Closed Deal Record")
             with st.container(border=True):
@@ -842,47 +641,83 @@ elif st.session_state.current_nav == "Working Progress":
 # 9. DEAL MATCHER, FINANCE & AUDIT LOGS
 # -----------------------------
 elif st.session_state.current_nav == "Deal Matcher":
-    st.title("🔍 Matcher Deal Matching Engine")
+    st.title("🔍 Deal Matching Engine")
     try:
-        clients = supabase.table("clients").select("*").execute().data
-        if clients:
-            c_names = [x["client_name"] for x in clients]
-            selected_c = st.selectbox("Choose Client Target", c_names)
-            client_record = next((c for c in clients if c["client_name"] == selected_c), None)
+        clients = supabase.table("clients").select("*").eq("status", "Searching").execute().data
+        inventory = supabase.table("inventory").select("*").eq("status", "Available").execute().data
+        
+        if clients and inventory:
+            df_inv = pd.DataFrame(inventory)
+            
+            c_names = [f"ID: {x['id']} - {x['client_name']}" for x in clients]
+            selected_c_label = st.selectbox("Select Client to Find Matches For:", c_names)
+            selected_c_id = int(selected_c_label.split("-")[0].replace("ID:", "").strip())
+            client_record = next((c for c in clients if c["id"] == selected_c_id), None)
+            
             if client_record:
-                budget, demand = client_record.get("max_budget", 0), client_record.get("demand_type")
-                matched_data = supabase.table("inventory").select("*").eq("property_type", demand).lte("price", budget * 1.1).execute().data
-                if matched_data:
-                    for m in matched_data:
-                        status_tag = '<span style="color:green; font-weight:bold;">Rent Out</span>' if m.get("status") == "Rent Out" else '<span style="color:blue; font-weight:bold;">Available</span>'
-                        st.markdown(f"""
-                        <div style="background:white; padding:15px; border-radius:8px; margin-bottom:10px; border:1px solid #ddd;">
-                            <h4>📍 {m.get('area')} - {m.get('marla')} Marla ({status_tag})</h4>
-                            <p>Demand Price: <b>{m.get('price'):,} PKR</b> | Client Budget Max: {budget:,} PKR</p>
-                        </div>
-                        """, unsafe_allow_html=True)
-    except: pass
+                st.markdown(f"### 📋 Requirements for **{client_record['client_name']}**")
+                st.write(f"**Budget:** {client_record['max_budget']:,} PKR | **Target Area/Details:** {client_record['preferred_area']}")
+                
+                matches = [
+                    item for item in inventory 
+                    if item['price'] <= client_record['max_budget']
+                ]
+                
+                if matches:
+                    st.success(f"🎉 Found {len(matches)} matching properties within budget!")
+                    df_matches = pd.DataFrame(matches)
+                    display_cols = ["id", "area", "marla", "property_type", "sub_type", "price", "owner_name", "owner_contact", "visiting_time"]
+                    active_cols = [c for c in display_cols if c in df_matches.columns]
+                    st.dataframe(df_matches[active_cols], use_container_width=True, hide_index=True)
+                else:
+                    st.info("No available properties match this client's budget criteria right now.")
+        else:
+            st.info("Make sure you have both Active Clients (Searching) and Available Inventory to use the Matcher.")
+    except Exception as e:
+        st.error(f"Error running Matcher Engine: {e}")
 
 elif st.session_state.current_nav == "Finance":
-    st.title("💰 Ledger Management")
-    if st.session_state.role == "Viewer":
-        try:
-            acc_data = supabase.table("accounts").select("*").order("id", desc=True).execute().data
-            if acc_data: st.dataframe(pd.DataFrame(acc_data), use_container_width=True, hide_index=True)
-            else: st.info("Ledger records khali hain.")
-        except: pass
+    st.title("💰 Financial Dashboard & Commissions")
+    if all_deals_list:
+        df_deals = pd.DataFrame(all_deals_list)
+        if "commission_earned" in df_deals.columns:
+            df_deals["commission_earned"] = pd.to_numeric(df_deals["commission_earned"], errors='coerce').fillna(0)
+            total_revenue = df_deals["commission_earned"].sum()
+            
+            st.markdown(f"""
+            <div class="metric-container">
+                <div class="kpi-card" style="border-top: 4px solid #16a34a;">
+                    <p class="kpi-label">Total Commission Revenue</p>
+                    <p class="kpi-value">{total_revenue:,.0f} PKR</p>
+                </div>
+                <div class="kpi-card" style="border-top: 4px solid #4f46e5;">
+                    <p class="kpi-label">Total Paid Deals</p>
+                    <p class="kpi-value">{len(df_deals)} Closed</p>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+            
+            st.markdown("### 📈 Revenue Breakthrough by Agent")
+            agent_perf = df_deals.groupby("agent_name")["commission_earned"].sum().reset_index()
+            agent_perf.columns = ["Agent Name", "Total Commissions Earned (PKR)"]
+            st.table(agent_perf)
+        else:
+            st.warning("No financial commission data found in closed deals.")
     else:
-        with st.form("fin"):
-            t = st.selectbox("Type", ["Income", "Expense"])
-            amt, desc = st.number_input("Amount", min_value=0), st.text_area("Remarks")
-            if st.form_submit_button("Save Ledger Row"):
-                supabase.table("accounts").insert({"type": t, "amount": amt, "description": desc, "created_at": datetime.now().strftime('%Y-%m-%d %H:%M:%S')}).execute()
-                st.success("Recorded.")
-                st.rerun()
+        st.info("Finance ledger is currently empty because no deals have been closed yet.")
 
 elif st.session_state.current_nav == "Activity Logs":
-    st.title("📋 Audit Activity Log System")
+    st.title("📋 System Security & Audit Activity Logs")
     try:
-        logs = supabase.table("activity_logs").select("*").order("created_at", desc=True).execute().data
-        if logs: st.dataframe(pd.DataFrame(logs)[["created_at", "user", "action", "target_area"]], use_container_width=True, hide_index=True)
-    except: pass
+        logs = supabase.table("activity_logs").select("*").order("id", desc=True).limit(200).execute().data
+        if logs:
+            df_logs = pd.DataFrame(logs)
+            display_cols = ["created_at", "user", "action", "target_area"]
+            active_cols = [c for c in display_cols if c in df_logs.columns]
+            
+            st.caption("Showing the last 200 security system events logs.")
+            st.dataframe(df_logs[active_cols], use_container_width=True, hide_index=True)
+        else:
+            st.info("System logs are entirely clean.")
+    except Exception as e:
+        st.error(f"Error pulling system activity trails: {e}")
