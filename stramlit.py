@@ -14,7 +14,7 @@ st.set_page_config(
 )
 
 # -----------------------------
-# CUSTOM CSS FOR SHARP PREMIUM UI
+# CUSTOM CSS FOR HIGHLIGHTS & UI
 # -----------------------------
 st.markdown("""
 <style>
@@ -32,21 +32,6 @@ st.markdown("""
     box-shadow: 0 1px 3px rgba(0,0,0,0.1);
     border-left: 5px solid #1e3a8a;
     margin-bottom: 15px;
-}
-/* Custom styling for status color highlights in custom views */
-.badge-green {
-    background-color: #dcfce7;
-    color: #166534;
-    padding: 4px 10px;
-    border-radius: 6px;
-    font-weight: bold;
-}
-.badge-blue {
-    background-color: #e0f2fe;
-    color: #0369a1;
-    padding: 4px 10px;
-    border-radius: 6px;
-    font-weight: bold;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -100,7 +85,7 @@ if not st.session_state.authenticated:
     st.stop()
 
 # -----------------------------
-# 1. NEW SIDEBAR WITH PREMIUM BUTTON SHAPE MENU
+# SIDEBAR NAVIGATION
 # -----------------------------
 if "current_nav" not in st.session_state:
     st.session_state.current_nav = "Dashboard"
@@ -111,8 +96,6 @@ with st.sidebar:
     st.divider()
     
     st.markdown("**Navigation Menu**")
-    
-    # List of modules
     modules = [
         {"name": "Dashboard", "icon": "📊"},
         {"name": "Quick Entry", "icon": "➕"},
@@ -123,9 +106,7 @@ with st.sidebar:
         {"name": "Activity Logs", "icon": "📋"}
     ]
     
-    # Generating modern button-shaped options dynamically
     for mod in modules:
-        # Highlight button if it's currently selected
         if st.session_state.current_nav == mod["name"]:
             button_label = f"▶️ {mod['icon']} {mod['name']}"
             type_style = "primary"
@@ -148,7 +129,6 @@ with st.sidebar:
 if st.session_state.current_nav == "Dashboard":
     st.title("📊 Portal Overview")
     
-    # Data Fetching
     inventory, clients, accounts = [], [], []
     try:
         inventory = supabase.table("inventory").select("*").execute().data
@@ -168,7 +148,7 @@ if st.session_state.current_nav == "Dashboard":
 
     m1, m2, m3 = st.columns(3)
     with m1:
-        st.markdown(f'<div class="kpi-card"><p style="margin:0;color:#64748b;font-size:14px;font-weight:600;">TOTAL LISTINGS</p><h2 style="margin:5px 0 0 0;color:#1e3a8a;">{total_inventory} Units</h2></div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="kpi-card"><p style="margin:0;color:#64748b;font-size:14px;font-weight:600;">TOTAL PROPERTIES</p><h2 style="margin:5px 0 0 0;color:#1e3a8a;">{total_inventory} Units</h2></div>', unsafe_allow_html=True)
     with m2:
         st.markdown(f'<div class="kpi-card" style="border-left-color:#0ea5e9;"><p style="margin:0;color:#64748b;font-size:14px;font-weight:600;">REGISTERED CLIENTS</p><h2 style="margin:5px 0 0 0;color:#0ea5e9;">{total_clients} Active</h2></div>', unsafe_allow_html=True)
     with m3:
@@ -177,24 +157,20 @@ if st.session_state.current_nav == "Dashboard":
         else:
             st.markdown('<div class="kpi-card" style="border-left-color:#94a3b8;"><p style="margin:0;color:#64748b;font-size:14px;font-weight:600;">ROLE STATUS</p><h2 style="margin:5px 0 0 0;color:#64748b;">Agent Mode</h2></div>', unsafe_allow_html=True)
 
-    st.subheader("⚡ Navigation Shortcuts")
-    q_col1, q_col2, q_col3 = st.columns(3)
-    if q_col1.button("➕ Open Quick Entry Wizard", use_container_width=True, key="q1"):
-        st.session_state.current_nav = "Quick Entry"
-        st.rerun()
-    if q_col2.button("🔍 Run Deal Matcher Engine", use_container_width=True, key="q2"):
-        st.session_state.current_nav = "Deal Matcher"
-        st.rerun()
-    if q_col3.button("🏡 View Properties Table", use_container_width=True, key="q3"):
-        st.session_state.current_nav = "Properties"
-        st.rerun()
-
     st.markdown("---")
-    st.subheader("📌 Recent Records Overview")
+    st.subheader("📌 Recent Listings Overview")
     if inventory:
         df_inv = pd.DataFrame(inventory)
         summary_cols = [c for c in ["id", "area", "marla", "property_type", "price", "status"] if c in df_inv.columns]
-        st.dataframe(df_inv[summary_cols].head(10), use_container_width=True, hide_index=True)
+        
+        # Highlight Rent Out directly in Dataframe view
+        def highlight_rented(row):
+            return ['background-color: #dcfce7; color: #166534' if row.status in ['Rent Out', 'Sold'] else '' for _ in row]
+            
+        if "status" in df_inv.columns:
+            st.dataframe(df_inv[summary_cols].head(10).style.apply(highlight_rented, axis=1), use_container_width=True, hide_index=True)
+        else:
+            st.dataframe(df_inv[summary_cols].head(10), use_container_width=True, hide_index=True)
 
 # -----------------------------
 # QUICK ENTRY MODULE
@@ -269,98 +245,124 @@ elif st.session_state.current_nav == "Quick Entry":
                             "client_name": client_name, "client_contact": client_contact,
                             "demand_type": demand_type, "max_budget": max_budget,
                             "required_beds": int(req_beds), "preferred_area": preferred_area,
-                            "required_marla": req_marla
+                            "required_marla": req_marla, "status": "Searching"
                         }).execute()
                         st.success("Client registered successfully!")
                     except Exception as e:
                         st.error(f"Error: {e}")
 
 # -----------------------------
-# 2. PROPERTIES MODULE (UPDATED TO TABLE VIEW WITH ACTIONS)
+# PROPERTIES MODULE (WITH GREEN HIGHLIGHT FOR CLOSED DEALS)
 # -----------------------------
 elif st.session_state.current_nav == "Properties":
     st.title("🏡 Properties Master Database")
-    st.caption("All properties displayed in a structural grid just like clients list.")
-
     search = st.text_input("🔍 Search Property by Area")
 
     try:
         properties = supabase.table("inventory").select("*").ilike("area", f"%{search}%").order("id", desc=True).execute().data
-        
         if properties:
             df_inv = pd.DataFrame(properties)
-            
-            # Reorganizing columns beautifully
-            all_cols = [
-                "id", "area", "marla", "property_type", "sub_type", 
-                "price", "status", "owner_name", "owner_contact", "visiting_time"
-            ]
+            all_cols = ["id", "area", "marla", "property_type", "sub_type", "price", "status", "owner_name", "owner_contact"]
             display_cols = [c for c in all_cols if c in df_inv.columns]
             
-            # --- COLOR RENDERING TRICK FOR STREAMLIT TABLE ---
-            # Hum row style inject karne ke liye custom styling apply kar sakte hain table elements par
-            st.dataframe(df_inv[display_cols], use_container_width=True, hide_index=True)
+            # Highlight closed deals (Rent Out / Sold) as light green row
+            def style_prop_row(row):
+                if row.status in ["Rent Out", "Sold"]:
+                    return ['background-color: #dcfce7; color: #166534; font-weight: bold;'] * len(row)
+                return [''] * len(row)
+                
+            st.dataframe(df_inv[display_cols].style.apply(style_prop_row, axis=1), use_container_width=True, hide_index=True)
             
             st.divider()
-            
-            # --- ACTION OPERATIONS SECTION ---
-            st.subheader("🛠️ Quick Actions Registry (Select ID from above table)")
-            
+            st.subheader("🛠️ Property Quick Actions Registry")
             action_c1, action_c2, action_c3 = st.columns(3)
             
             prop_ids = [int(x["id"]) for x in properties]
             selected_id = action_c1.selectbox("Select Property ID to modify", prop_ids)
-            
-            # Fetch specific record to show current status
             selected_prop = next((p for p in properties if p["id"] == selected_id), None)
             
             if selected_prop:
-                st.info(f"📍 Selected Property: **{selected_prop['marla']} Marla {selected_prop['sub_type']}** at **{selected_prop['area']}** (Current Status: **{selected_prop['status']}**)")
+                st.info(f"📍 Selected: {selected_prop['marla']} Marla ({selected_prop['status']}) at {selected_prop['area']}")
                 
-                # Rent Out Button/Option
                 if action_c2.button("🟢 Mark as 'Rent Out' / Sold", use_container_width=True):
                     supabase.table("inventory").update({"status": "Rent Out"}).eq("id", selected_id).execute()
-                    
-                    supabase.table("activity_logs").insert({
-                        "user": st.session_state.user, "action": f"Marked Property #{selected_id} as Rent Out."
-                    }).execute()
-                    st.success(f"Property #{selected_id} status updated successfully to Rent Out!")
+                    supabase.table("activity_logs").insert({"user": st.session_state.user, "action": f"Marked Property #{selected_id} as Rent Out."}).execute()
+                    st.success("Status updated to Rent Out!")
                     st.rerun()
                 
-                # Delete Option
                 if st.session_state.role == "Admin":
                     if action_c3.button("🔴 Delete Property Record", use_container_width=True):
                         supabase.table("inventory").delete().eq("id", selected_id).execute()
-                        
-                        supabase.table("activity_logs").insert({
-                            "user": st.session_state.user, "action": f"Deleted Property Record #{selected_id}."
-                        }).execute()
-                        st.warning(f"Property #{selected_id} permanently removed from system.")
+                        st.warning("Property permanently removed.")
                         st.rerun()
-                else:
-                    action_c3.caption("🔒 *Delete option is restricted to Admin role.*")
-                    
         else:
-            st.info("No property listed yet.")
+            st.info("No properties found.")
     except Exception as e:
-        st.error(f"Failed to load records: {e}")
+        st.error(f"Error: {e}")
 
 # -----------------------------
-# CLIENTS MODULE
+# CLIENTS MODULE (UPDATED WITH HIGHLIGHT & ACTIONS)
 # -----------------------------
 elif st.session_state.current_nav == "Clients":
     st.title("👥 Registered Clients Database")
+    search_client = st.text_input("🔍 Search Client by Name")
+    
     try:
-        clients = supabase.table("clients").select("*").order("id", desc=True).execute().data
+        clients = supabase.table("clients").select("*").ilike("client_name", f"%{search_client}%").order("id", desc=True).execute().data
         if clients:
             df_clients = pd.DataFrame(clients)
-            display_cols = [c for c in [
-                "id", "client_name", "client_contact", "demand_type", 
-                "max_budget", "preferred_area", "required_marla", "required_beds"
-            ] if c in df_clients.columns]
-            st.dataframe(df_clients[display_cols], use_container_width=True, hide_index=True)
+            
+            # Pre-check columns
+            if "status" not in df_clients.columns:
+                df_clients["status"] = "Searching"
+                
+            all_client_cols = ["id", "client_name", "client_contact", "demand_type", "max_budget", "preferred_area", "required_marla", "status"]
+            display_cols = [c for c in all_client_cols if c in df_clients.columns]
+            
+            # Highlight 'House Found' profiles as beautiful light green rows
+            def style_client_row(row):
+                if row.status == "House Found":
+                    return ['background-color: #dcfce7; color: #166534; font-weight: bold;'] * len(row)
+                return [''] * len(row)
+                
+            st.dataframe(df_clients[display_cols].style.apply(style_client_row, axis=1), use_container_width=True, hide_index=True)
+            
+            st.divider()
+            
+            # --- CLIENT QUICK ACTIONS ---
+            st.subheader("🛠️ Client Actions Registry")
+            cl_c1, cl_c2, cl_c3 = st.columns(3)
+            
+            client_ids = [int(x["id"]) for x in clients]
+            selected_cl_id = cl_c1.selectbox("Select Client ID to modify", client_ids)
+            selected_client_rec = next((c for c in clients if c["id"] == selected_cl_id), None)
+            
+            if selected_client_rec:
+                current_cl_status = selected_client_rec.get('status', 'Searching')
+                st.info(f"👤 Selected Client: **{selected_client_rec['client_name']}** (Current Status: **{current_cl_status}**)")
+                
+                # House Found Action Button
+                if cl_c2.button("🎉 Mark as 'House Found'", use_container_width=True):
+                    supabase.table("clients").update({"status": "House Found"}).eq("id", selected_cl_id).execute()
+                    supabase.table("activity_logs").insert({
+                        "user": st.session_state.user, "action": f"Marked Client #{selected_cl_id} status as House Found."
+                    }).execute()
+                    st.success(f"Client #{selected_cl_id} updated to House Found!")
+                    st.rerun()
+                    
+                # Delete Client Action Button
+                if st.session_state.role == "Admin":
+                    if cl_c3.button("🔴 Delete Client Record", use_container_width=True):
+                        supabase.table("clients").delete().eq("id", selected_cl_id).execute()
+                        supabase.table("activity_logs").insert({
+                            "user": st.session_state.user, "action": f"Deleted Client Record #{selected_cl_id}."
+                        }).execute()
+                        st.warning("Client record deleted successfully.")
+                        st.rerun()
+                else:
+                    cl_c3.caption("🔒 *Delete restricted to Admin.*")
         else:
-            st.info("No clients records found.")
+            st.info("No client records found.")
     except Exception as e:
         st.error(f"Error: {e}")
 
@@ -384,11 +386,10 @@ elif st.session_state.current_nav == "Deal Matcher":
                 
                 if matched_data:
                     for m in matched_data:
-                        score = 100
                         if m.get("status") == "Rent Out":
-                            status_tag = '<span class="badge-green">Rent Out (Closed)</span>'
+                            status_tag = '<span style="color:green; font-weight:bold;">Rent Out</span>'
                         else:
-                            status_tag = '<span class="badge-blue">Available</span>'
+                            status_tag = '<span style="color:blue; font-weight:bold;">Available</span>'
                             
                         st.markdown(f"""
                         <div style="background:white; padding:15px; border-radius:8px; margin-bottom:10px; border:1px solid #ddd;">
@@ -400,7 +401,7 @@ elif st.session_state.current_nav == "Deal Matcher":
                         phone = clean_phone(client_record.get("client_contact"))
                         msg = quote(f"Salam {selected_c}, matching property found in {m.get('area')} for {m.get('price'):,} PKR.")
                         if phone:
-                            st.link_button("💬 Send Update", f"https://wa.me/{phone}?text={msg}", key=f"dm_{m['id']}")
+                            st.link_button("💬 Send Update via WhatsApp", f"https://wa.me/{phone}?text={msg}", key=f"dm_{m['id']}")
                 else:
                     st.warning("No matches available for this profile.")
     except Exception as e:
