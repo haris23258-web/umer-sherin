@@ -123,7 +123,7 @@ with st.sidebar:
         st.rerun()
 
 # -----------------------------
-# DASHBOARD MODULE
+# 1. DASHBOARD MODULE
 # -----------------------------
 if st.session_state.current_nav == "Dashboard":
     st.title("📊 Portal Overview & Staff Analytics")
@@ -196,26 +196,39 @@ elif st.session_state.current_nav == "Quick Entry":
             area = c1.text_input("Area / Society Name")
             marla = c2.number_input("Size (Marla)", min_value=1.0, step=1.0)
             rent_price = c3.number_input("Monthly Rent Price (PKR)", min_value=0, step=1000)
+            
             c4, c5, c6 = st.columns(3)
             category = c4.selectbox("Category", ["House", "Flat", "Portion", "Room"])
-            status = c5.selectbox("Status", ["Available", "Rent Out", "Hold"])
-            owner_name = c6.text_input("Owner Name")
-            c7, c8 = st.columns(2)
-            owner_contact = c7.text_input("Owner Contact Number")
-            visiting_time = c8.text_input("Preferred Visiting Time")
+            beds = c5.selectbox("Bedrooms (Bed)", ["1 Bed", "2 Bed", "3 Bed", "4 Bed", "5 Bed", "5+ Bed"])
+            status = c6.selectbox("Status", ["Available", "Rent Out", "Hold"])
+            
+            # Utilities Section (Bijli, Gas, Pani)
+            st.markdown("**🔋 Utilities Details / Sahoolat:**")
+            ut1, ut2, ut3 = st.columns(3)
+            elec_opt = ut1.selectbox("Bijli (Electricity)", ["Available", "Not Available / No Meter"])
+            gas_opt = ut2.selectbox("Gas", ["Available", "Not Available / No Cylinder Only"])
+            water_opt = ut3.selectbox("Pani (Water Supply)", ["Water Bore", "Government Supply", "Bore + Supply Both", "No Water / Tanker Only"])
+            
+            st.divider()
+            c7, c8, c9 = st.columns(3)
+            owner_name = c7.text_input("Owner Name")
+            owner_contact = c8.text_input("Owner Contact Number")
+            visiting_time = c9.text_input("Preferred Visiting Time")
             
             if st.form_submit_button("Save Property"):
                 if not area or not owner_name or not owner_contact: st.warning("Please fill required fields.")
                 else:
                     try:
+                        # Storing full specifications in dynamic remarks context to avoid DB scheme crash
+                        utility_notes = f"[{beds} | Bijli: {elec_opt} | Gas: {gas_opt} | Pani: {water_opt}]"
                         supabase.table("inventory").insert({
                             "area": area, "price": rent_price, "marla": marla,
                             "property_type": "Rent", "sub_type": category, "status": status,
                             "owner_name": owner_name, "owner_contact": owner_contact,
-                            "visiting_time": visiting_time, "added_by": st.session_state.user
+                            "visiting_time": f"{visiting_time} {utility_notes}".strip(), "added_by": st.session_state.user
                         }).execute()
-                        log_activity(st.session_state.user, f"Added {marla} Marla property in {area}", area)
-                        st.success("Rent property saved safely!")
+                        log_activity(st.session_state.user, f"Added {marla} Marla property ({beds}) in {area}", area)
+                        st.success("Rent property with utilities saved safely!")
                     except Exception as e: st.error(f"Error: {e}")
 
     with tab2:
@@ -224,9 +237,12 @@ elif st.session_state.current_nav == "Quick Entry":
             cc1, cc2 = st.columns(2)
             client_name = cc1.text_input("Client Name")
             client_contact = cc2.text_input("Client Contact")
-            cc3, cc4 = st.columns(2)
+            
+            cc3, cc4, cc5 = st.columns(3)
             demand_type = cc3.selectbox("Demand Type", ["Rent", "Sale"])
-            max_budget = cc4.number_input("Max Budget (PKR)", min_value=0, step=1000)
+            property_opt = cc4.selectbox("Property Type Required", ["Full House", "Upper Portion", "Ground Portion", "Portion", "Bed / Room"])
+            max_budget = cc5.number_input("Max Budget (PKR)", min_value=0, step=1000)
+            
             preferred_area = st.text_input("Target Area")
             
             if st.form_submit_button("Register Client"):
@@ -236,11 +252,11 @@ elif st.session_state.current_nav == "Quick Entry":
                         supabase.table("clients").insert({
                             "client_name": client_name, "client_contact": client_contact,
                             "demand_type": demand_type, "max_budget": max_budget,
-                            "preferred_area": preferred_area, "status": "Searching",
-                            "last_interaction": "New registered client."
+                            "preferred_area": f"{preferred_area} ({property_opt})", "status": "Searching",
+                            "last_interaction": f"New registered client. Looking for {property_opt}."
                         }).execute()
-                        log_activity(st.session_state.user, f"Registered Client {client_name} for {preferred_area}", preferred_area)
-                        st.success("Client registered successfully!")
+                        log_activity(st.session_state.user, f"Registered Client {client_name} for {property_opt} in {preferred_area}", preferred_area)
+                        st.success("Client requirement registered successfully!")
                     except Exception as e: st.error(f"Error: {e}")
 
     with tab3:
@@ -260,7 +276,7 @@ elif st.session_state.current_nav == "Quick Entry":
                     st.rerun()
 
 # -----------------------------
-# RESTORED PROPERTIES MASTER DATABASE (TABLE VIEW WITH CONTROL BAR)
+# PROPERTIES MASTER DATABASE (TABLE VIEW WITH CONTROL BAR)
 # -----------------------------
 elif st.session_state.current_nav == "Properties":
     st.title("🏡 Properties Master Database")
@@ -308,7 +324,7 @@ elif st.session_state.current_nav == "Properties":
     except Exception as e: st.error(f"Error: {e}")
 
 # -----------------------------
-# RESTORED CLIENTS DATABASE (TABLE VIEW WITH INTERACTION INTERACTIONS)
+# CLIENTS DATABASE (TABLE VIEW WITH INTERACTION INTERACTIONS)
 # -----------------------------
 elif st.session_state.current_nav == "Clients":
     st.title("👥 Registered Clients & Follow-up Tracking")
