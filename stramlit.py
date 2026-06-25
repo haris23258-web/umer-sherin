@@ -309,17 +309,20 @@ elif st.session_state.current_nav == "Quick Entry":
             with st.form("visit_entry_form", clear_on_submit=True):
                 v_c1, v_c2 = st.columns(2)
                 v_client = v_c1.text_input("Client Name (Whom you showed the house)")
-                v_property = v_c2.text_input("Property / House Visited (Area & Details)")
+                v_contact = v_c2.text_input("Client Contact Number / Mobile") # Added visitor contact input
+                v_property = st.text_input("Property / House Visited (Area & Details)")
                 v_feedback = st.text_area("Client Feedback (e.g., Token promised, Disliked due to gas issue, Token given, etc.)")
                 
                 if st.form_submit_button("💾 Save Visit Entry"):
                     if not v_client or not v_property: st.warning("Please fill Client and Property details.")
                     else:
                         try:
+                            # Contact feedback ke sath ya direct store ho sakta hai (Aasan approach ke liye feedback ya details ke sath mix kar ke save kar rahe hain taake purane table schema ko distrub na karein agar alter query run na ki ho)
+                            final_feedback_str = f"[Contact: {v_contact}] {v_feedback}".strip() if v_contact else v_feedback
                             supabase.table("property_visits").insert({
                                 "client_name": v_client,
                                 "property_details": v_property,
-                                "feedback": v_feedback,
+                                "feedback": final_feedback_str,
                                 "agent_name": current_logged_agent,
                                 "created_at": current_timestamp
                             }).execute()
@@ -427,7 +430,7 @@ elif st.session_state.current_nav == "Clients":
     except Exception as e: st.error(f"Error handling system display: {e}")
 
 # -----------------------------
-# 5. PROPERTY VISITS LOG
+# 5. PROPERTY VISITS LOG (WITH DELETE OPTION)
 # -----------------------------
 elif st.session_state.current_nav == "Property Visits Log":
     st.title("📋 Staff Daily Property Visits Record Room")
@@ -436,17 +439,33 @@ elif st.session_state.current_nav == "Property Visits Log":
     try:
         visits = supabase.table("property_visits").select("*").order("id", desc=True).execute().data
         if visits:
-            df_visits = pd.DataFrame(visits)[["created_at", "agent_name", "client_name", "property_details", "feedback"]]
-            df_visits.columns = ["Date & Time", "Agent Name", "Client Name", "Property Visited", "Client Feedback / Remarks"]
+            df_visits = pd.DataFrame(visits)[["id", "created_at", "agent_name", "client_name", "property_details", "feedback"]]
+            df_visits_display = df_visits[["created_at", "agent_name", "client_name", "property_details", "feedback"]]
+            df_visits_display.columns = ["Date & Time", "Agent Name", "Client Name", "Property Visited", "Client Feedback / Remarks"]
             
-            pdf_html = convert_df_to_pdf_html(df_visits, "Daily Property Visits Report")
+            pdf_html = convert_df_to_pdf_html(df_visits_display, "Daily Property Visits Report")
             st.download_button(label="📥 Print PDF (Download Visits Report Log)", data=pdf_html, file_name="property_visits_report.html", mime="text/html")
             
-            st.dataframe(df_visits, use_container_width=True, hide_index=True)
+            st.dataframe(df_visits_display, use_container_width=True, hide_index=True)
+            
+            # --- DELETE VISIT SECTION ---
+            if st.session_state.role != "Viewer":
+                st.markdown("### 🛠️ Remove/Delete Visit Entry")
+                with st.container(border=True):
+                    del_v1, del_v2 = st.columns([5, 3])
+                    visit_options = {f"ID: {v['id']} - Client: {v['client_name']} (Agent: {v['agent_name']})": v['id'] for v in visits}
+                    selected_visit_label = del_v1.selectbox("Select Visit Entry to Delete:", list(visit_options.keys()))
+                    selected_visit_id = visit_options[selected_visit_label]
+                    
+                    if del_v2.button("🚨 Delete Selected Visit Log", use_container_width=True):
+                        supabase.table("property_visits").delete().eq("id", selected_visit_id).execute()
+                        log_activity(st.session_state.user, f"Deleted Visit Log Entry ID: {selected_visit_id}")
+                        st.warning("Visit record row removed successfully.")
+                        st.rerun()
         else:
             st.info("Abhi tak system mein koi Property Visit report enter nahi ki gayi.")
     except Exception as e:
-        st.error(f"Error loading visits log. Make sure 'property_visits' table exists in Supabase: {e}")
+        st.error(f"Error loading visits log: {e}")
 
 # -----------------------------
 # 6. DEAL DONE REGISTRY
@@ -508,16 +527,41 @@ elif st.session_state.current_nav == "Deal Done Registry":
                     except Exception as e: st.error(f"System Error: {e}")
 
 # -----------------------------
-# 7. DEALS HISTORY MODULE
+# 7. DEALS HISTORY MODULE (WITH DELETE OPTION)
 # -----------------------------
 elif st.session_state.current_nav == "Deals History":
     st.title("📜 Successful Closed Deals History Log")
     if all_deals_list:
         df_deals_display = pd.DataFrame(all_deals_list)
-        pdf_html = convert_df_to_pdf_html(df_deals_display, "Closed Deals Registry Report")
+        
+        # Select target columns for output clean look
+        target_cols = ["id", "created_at", "client_name", "property_details", "agent_name", "commission_earned"]
+        active_cols = [col for col in target_cols if col in df_deals_display.columns]
+        
+        pdf_html = convert_df_to_pdf_html(df_deals_display[active_cols], "Closed Deals Registry Report")
         st.download_button(label="📥 Print PDF (Download Deals Invoice History)", data=pdf_html, file_name="deals_history.html", mime="text/html")
-        st.dataframe(df_deals_display, use_container_width=True, hide_index=True)
-    else: st.info("System Registry Dashboard khali hai.")
+        
+        st.dataframe(df_deals_display[active_cols], use_container_width=True, hide_index=True)
+        
+        # --- DELETE DEAL SECTION ---
+        if st.session_state.role != "Viewer":
+            st.markdown("### 🛠️ Remove/Delete Closed Deal Record")
+            with st.container(border=True):
+                del_d1, del_d2 = st.columns([5, 3])
+                deal_options = {f"ID: {d['id']} - Client: {d['client_name']} (Earned: {d.get('commission_earned', 0)})": d['id'] for d in all_deals_list if 'id' in d}
+                if deal_options:
+                    selected_deal_label = del_d1.selectbox("Select Closed Deal Row to Remove:", list(deal_options.keys()))
+                    selected_deal_id = deal_options[selected_deal_label]
+                    
+                    if del_d2.button("🚨 Delete Selected Deal Form Database", use_container_width=True):
+                        supabase.table("deals").delete().eq("id", selected_deal_id).execute()
+                        log_activity(st.session_state.user, f"Deleted Locked Deal Record ID: {selected_deal_id}")
+                        st.warning("Deal record line removed.")
+                        st.rerun()
+                else:
+                    st.write("No matching database dynamic ID key found to perform deletes.")
+    else: 
+        st.info("System Registry Dashboard khali hai.")
 
 # -----------------------------
 # 8. WORKING PROGRESS MODULE (STAFF LOGS)
