@@ -96,12 +96,12 @@ def convert_df_to_pdf_html(df, title):
     return html
 
 # -----------------------------
-# LOGIN SYSTEM
+# LOGIN SYSTEM (UMER ADDED AS VIEWER)
 # -----------------------------
 USER_DB = {
-    "sawer khan": {"role": "Admin", "pin": "sawer123"},
-    "tariq": {"role": "Admin", "pin": "tariq456"},
-    "agent": {"role": "Agent", "pin": "786"}
+    "umer": {"role": "Viewer", "pin": "umer123"},       # Owner / Viewer Role (Sirf dekhne ke liye)
+    "sawer khan": {"role": "Agent", "pin": "sawer123"}, # Agent Role
+    "tariq": {"role": "Agent", "pin": "tariq456"}       # Agent Role
 }
 
 if "authenticated" not in st.session_state:
@@ -140,18 +140,28 @@ with st.sidebar:
     st.write(f"👤 **{st.session_state.user.title()}** ({st.session_state.role})")
     st.divider()
     
-    modules = [
-        {"name": "Dashboard", "icon": "📊"},
-        {"name": "Quick Entry", "icon": "➕"},
+    # Conditional Navigation Modules based on Role
+    modules = [{"name": "Dashboard", "icon": "📊"}]
+    
+    # Quick Entry sirf Agents (Sawer aur Tariq) ko dikhegi, Umer bhai ko nahi dikhegi kyuki aap ne edit/add nahi karna
+    if st.session_state.role != "Viewer":
+        modules.append({"name": "Quick Entry", "icon": "➕"})
+        
+    modules.extend([
         {"name": "Properties", "icon": "🏡"},
         {"name": "Clients", "icon": "👤"},
-        {"name": "Deal Done Registry", "icon": "🤝"},
+    ])
+    
+    if st.session_state.role != "Viewer":
+        modules.append({"name": "Deal Done Registry", "icon": "🤝"})
+        
+    modules.extend([
         {"name": "Deals History", "icon": "📜"},          
         {"name": "Working Progress", "icon": "📈"},       
         {"name": "Deal Matcher", "icon": "🔍"},
         {"name": "Finance", "icon": "💰"},
         {"name": "Activity Logs", "icon": "📋"}
-    ]
+    ])
     
     for mod in modules:
         style_type = "primary" if st.session_state.current_nav == mod["name"] else "secondary"
@@ -205,100 +215,106 @@ if st.session_state.current_nav == "Dashboard":
         st.markdown(f'<div class="kpi-card" style="border-left-color:#10b981;"><p style="margin:0;color:#64748b;font-size:14px;font-weight:600;">TOTAL DEALS CLOSED</p><h2 style="margin:5px 0 0 0;color:#10b981;">{len(all_deals_list)} Successful</h2></div>', unsafe_allow_html=True)
 
     st.markdown("---")
-    st.info("💡 Date tracking aur Agent name validation system ke har kone me add kar diye gaye hain.")
+    if st.session_state.role == "Viewer":
+        st.info(f"👋 KhushAamdeed Umer Bhai! Aap is waqt **Watch-Only Mode** mein hain. Aap poore staff ki working aur gharon ka record dekh sakte hain par koi tabdeeli nahi kar sakte.")
+    else:
+        st.info("💡 Date tracking aur Agent name validation system ke har kone me add kar diye gaye hain.")
 
 # -----------------------------
-# 2. QUICK ENTRY MODULE (DATE & AGENT FIXED)
+# 2. QUICK ENTRY MODULE
 # -----------------------------
 elif st.session_state.current_nav == "Quick Entry":
-    st.title("Quick Entry Wizard")
-    tab1, tab2, tab3 = st.tabs(["🏡 House for Rent Entry", "👤 Client Requirements Entry", "🗣️ Staff Daily Field Working Entry"])
+    if st.session_state.role == "Viewer":
+        st.error("Aap ko is page tak rasai nahi hai.")
+    else:
+        st.title("Quick Entry Wizard")
+        tab1, tab2, tab3 = st.tabs(["🏡 House for Rent Entry", "👤 Client Requirements Entry", "🗣️ Staff Daily Field Working Entry"])
 
-    current_timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-    current_logged_agent = st.session_state.user
+        current_timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        current_logged_agent = st.session_state.user
 
-    with tab1:
-        st.subheader("Add House for Rent")
-        with st.form("quick_rent_form", clear_on_submit=True):
-            c1, c2, c3 = st.columns(3)
-            area = c1.text_input("Area / Society Name")
-            marla = c2.number_input("Size (Marla)", min_value=1.0, step=1.0)
-            rent_price = c3.number_input("Monthly Rent Price (PKR)", min_value=0, step=1000)
-            
-            c4, c5, c6 = st.columns(3)
-            category = c4.selectbox("Category", ["House", "Flat", "Portion", "Room"])
-            beds = c5.selectbox("Bedrooms (Bed)", ["1 Bed", "2 Bed", "3 Bed", "4 Bed", "5 Bed", "5+ Bed"])
-            status = c6.selectbox("Status", ["Available", "Rent Out", "Hold"])
-            
-            st.markdown("**🔋 Utilities Details / Sahoolat:**")
-            ut1, ut2, ut3 = st.columns(3)
-            elec_opt = ut1.selectbox("Bijli (Electricity)", ["Available", "Not Available / No Meter"])
-            gas_opt = ut2.selectbox("Gas", ["Available", "Not Available / No Cylinder Only"])
-            water_opt = ut3.selectbox("Pani (Water Supply)", ["Water Bore", "Government Supply", "Bore + Supply Both", "No Water / Tanker Only"])
-            
-            st.divider()
-            c7, c8, c9 = st.columns(3)
-            owner_name = c7.text_input("Owner Name")
-            owner_contact = c8.text_input("Owner Contact Number")
-            visiting_time = c9.text_input("Preferred Visiting Time")
-            
-            if st.form_submit_button("Save Property"):
-                if not area or not owner_name or not owner_contact: st.warning("Please fill required fields.")
-                else:
-                    try:
-                        utility_notes = f"[{beds} | Bijli: {elec_opt} | Gas: {gas_opt} | Pani: {water_opt}]"
-                        supabase.table("inventory").insert({
-                            "area": area, "price": rent_price, "marla": marla,
-                            "property_type": "Rent", "sub_type": category, "status": status,
-                            "owner_name": owner_name, "owner_contact": owner_contact,
-                            "visiting_time": f"{visiting_time} {utility_notes}".strip(), 
-                            "added_by": current_logged_agent,              # Automatically catches agent name
-                            "created_at": current_timestamp               # Automatically logs current date/time
-                        }).execute()
-                        st.success(f"Rent property saved safely by {current_logged_agent.title()} on {current_timestamp}!")
-                    except Exception as e: st.error(f"Error: {e}")
+        with tab1:
+            st.subheader("Add House for Rent")
+            with st.form("quick_rent_form", clear_on_submit=True):
+                c1, c2, c3 = st.columns(3)
+                area = c1.text_input("Area / Society Name")
+                marla = c2.number_input("Size (Marla)", min_value=1.0, step=1.0)
+                rent_price = c3.number_input("Monthly Rent Price (PKR)", min_value=0, step=1000)
+                
+                c4, c5, c6 = st.columns(3)
+                category = c4.selectbox("Category", ["House", "Flat", "Portion", "Room"])
+                beds = c5.selectbox("Bedrooms (Bed)", ["1 Bed", "2 Bed", "3 Bed", "4 Bed", "5 Bed", "5+ Bed"])
+                status = c6.selectbox("Status", ["Available", "Rent Out", "Hold"])
+                
+                st.markdown("**🔋 Utilities Details / Sahoolat:**")
+                ut1, ut2, ut3 = ut1, ut2, ut3 = st.columns(3)
+                elec_opt = ut1.selectbox("Bijli (Electricity)", ["Available", "Not Available / No Meter"])
+                gas_opt = ut2.selectbox("Gas", ["Available", "Not Available / No Cylinder Only"])
+                water_opt = ut3.selectbox("Pani (Water Supply)", ["Water Bore", "Government Supply", "Bore + Supply Both", "No Water / Tanker Only"])
+                
+                st.divider()
+                c7, c8, c9 = st.columns(3)
+                owner_name = c7.text_input("Owner Name")
+                owner_contact = c8.text_input("Owner Contact Number")
+                visiting_time = c9.text_input("Preferred Visiting Time")
+                
+                if st.form_submit_button("Save Property"):
+                    if not area or not owner_name or not owner_contact: st.warning("Please fill required fields.")
+                    else:
+                        try:
+                            utility_notes = f"[{beds} | Bijli: {elec_opt} | Gas: {gas_opt} | Pani: {water_opt}]"
+                            supabase.table("inventory").insert({
+                                "area": area, "price": rent_price, "marla": marla,
+                                "property_type": "Rent", "sub_type": category, "status": status,
+                                "owner_name": owner_name, "owner_contact": owner_contact,
+                                "visiting_time": f"{visiting_time} {utility_notes}".strip(), 
+                                "added_by": current_logged_agent,
+                                "created_at": current_timestamp
+                            }).execute()
+                            st.success(f"Rent property saved safely by {current_logged_agent.title()} on {current_timestamp}!")
+                        except Exception as e: st.error(f"Error: {e}")
 
-    with tab2:
-        st.subheader("Add Client Requirements")
-        with st.form("quick_client_form", clear_on_submit=True):
-            cc1, cc2 = st.columns(2)
-            client_name = cc1.text_input("Client Name")
-            client_contact = cc2.text_input("Client Contact")
-            cc3, cc4, cc5, cc6 = st.columns(4)
-            demand_type = cc3.selectbox("Demand Type", ["Rent", "Sale"])
-            property_opt = cc4.selectbox("Property Type Required", ["Full House", "Upper Portion", "Ground Portion", "Portion", "Bed / Room"])
-            client_beds = cc5.selectbox("Bedrooms Needed (Bed)", ["Any / No Pref", "1 Bed", "2 Bed", "3 Bed", "4 Bed", "5+ Bed"])
-            max_budget = cc6.number_input("Max Budget (PKR)", min_value=0, step=1000)
-            preferred_area = st.text_input("Target Area")
-            
-            if st.form_submit_button("Register Client"):
-                if not client_name or not client_contact: st.warning("Please fill required fields.")
-                else:
-                    try:
-                        combined_pref_details = f"{preferred_area} ({property_opt} - {client_beds})"
-                        supabase.table("clients").insert({
-                            "client_name": client_name, "client_contact": client_contact,
-                            "demand_type": demand_type, "max_budget": max_budget,
-                            "preferred_area": combined_pref_details, "status": "Searching",
-                            "added_by": current_logged_agent,              # Automatically catches agent name
-                            "created_at": current_timestamp               # Automatically logs current date/time
-                        }).execute()
-                        st.success(f"Client registered successfully by {current_logged_agent.title()} on {current_timestamp}!")
-                    except Exception as e: st.error(f"Error: {e}")
+        with tab2:
+            st.subheader("Add Client Requirements")
+            with st.form("quick_client_form", clear_on_submit=True):
+                cc1, cc2 = st.columns(2)
+                client_name = cc1.text_input("Client Name")
+                client_contact = cc2.text_input("Client Contact")
+                cc3, cc4, cc5, cc6 = st.columns(4)
+                demand_type = cc3.selectbox("Demand Type", ["Rent", "Sale"])
+                property_opt = cc4.selectbox("Property Type Required", ["Full House", "Upper Portion", "Ground Portion", "Portion", "Bed / Room"])
+                client_beds = cc5.selectbox("Bedrooms Needed (Bed)", ["Any / No Pref", "1 Bed", "2 Bed", "3 Bed", "4 Bed", "5+ Bed"])
+                max_budget = cc6.number_input("Max Budget (PKR)", min_value=0, step=1000)
+                preferred_area = st.text_input("Target Area")
+                
+                if st.form_submit_button("Register Client"):
+                    if not client_name or not client_contact: st.warning("Please fill required fields.")
+                    else:
+                        try:
+                            combined_pref_details = f"{preferred_area} ({property_opt} - {client_beds})"
+                            supabase.table("clients").insert({
+                                "client_name": client_name, "client_contact": client_contact,
+                                "demand_type": demand_type, "max_budget": max_budget,
+                                "preferred_area": combined_pref_details, "status": "Searching",
+                                "added_by": current_logged_agent,
+                                "created_at": current_timestamp
+                            }).execute()
+                            st.success(f"Client registered successfully by {current_logged_agent.title()} on {current_timestamp}!")
+                        except Exception as e: st.error(f"Error: {e}")
 
-    with tab3:
-        st.subheader("📝 Record Staff Daily Progress Report")
-        with st.form("staff_work_form", clear_on_submit=True):
-            cw1, cw2 = st.columns(2)
-            working_staff = cw1.selectbox("Select Staff Member / Agent", list(USER_DB.keys())) if st.session_state.role == "Admin" else cw1.text_input("Staff Member", value=st.session_state.user, disabled=True)
-            working_area = cw2.text_input("Target Area Name")
-            activity_detail = st.text_area("What work was done today?")
-            if st.form_submit_button("📢 Submit Progress Report"):
-                log_activity(working_staff, activity_detail, working_area)
-                st.success("Progress report logged!")
+        with tab3:
+            st.subheader("📝 Record Staff Daily Progress Report")
+            with st.form("staff_work_form", clear_on_submit=True):
+                cw1, cw2 = st.columns(2)
+                working_staff = cw1.text_input("Staff Member", value=st.session_state.user, disabled=True)
+                working_area = cw2.text_input("Target Area Name")
+                activity_detail = st.text_area("What work was done today?")
+                if st.form_submit_button("📢 Submit Progress Report"):
+                    log_activity(working_staff, activity_detail, working_area)
+                    st.success("Progress report logged!")
 
 # -----------------------------
-# 3. PROPERTIES DATABASE (TABLE DISPLAY FIXED)
+# 3. PROPERTIES DATABASE (WATCH MODE INTEGRATED)
 # -----------------------------
 elif st.session_state.current_nav == "Properties":
     st.title("🏡 Properties Master Database")
@@ -309,7 +325,6 @@ elif st.session_state.current_nav == "Properties":
         if properties:
             df_inv = pd.DataFrame(properties)
             
-            # Ensured Date/Time and Agent Name columns are visible in display
             all_cols = ["id", "created_at", "added_by", "area", "marla", "property_type", "sub_type", "price", "status", "owner_name", "owner_contact", "visiting_time"]
             display_cols = [c for c in all_cols if c in df_inv.columns]
             
@@ -322,31 +337,32 @@ elif st.session_state.current_nav == "Properties":
             
             st.dataframe(df_inv[display_cols].style.apply(style_prop_row, axis=1), use_container_width=True, hide_index=True)
             
-            # ACTION BUTTONS CONTROL PANEL
-            st.markdown("### 🛠️ Property Action Controls")
-            with st.container(border=True):
-                ac1, ac2, ac3 = st.columns([4, 2, 2])
-                prop_options = {f"ID: {p['id']} - {p['marla']} Marla ({p['area']}) [Current: {p['status']}]": p['id'] for p in properties}
-                selected_p_label = ac1.selectbox("Select Property Unit to update:", list(prop_options.keys()))
-                selected_p_id = prop_options[selected_p_label]
-                
-                current_unit = next((item for item in properties if item["id"] == selected_p_id), None)
-                
-                if ac2.button("✅ Mark Selected Rent Out", use_container_width=True):
-                    supabase.table("inventory").update({"status": "Rent Out"}).eq("id", selected_p_id).execute()
-                    log_activity(st.session_state.user, f"Marked Property ID {selected_p_id} as Rent Out", current_unit['area'] if current_unit else "N/A")
-                    st.success("Property marked as Rent Out!")
-                    st.rerun()
+            # Action Controls hide for Umer Bhai (Viewer)
+            if st.session_state.role != "Viewer":
+                st.markdown("### 🛠️ Property Action Controls")
+                with st.container(border=True):
+                    ac1, ac2, ac3 = st.columns([4, 2, 2])
+                    prop_options = {f"ID: {p['id']} - {p['marla']} Marla ({p['area']}) [Current: {p['status']}]": p['id'] for p in properties}
+                    selected_p_label = ac1.selectbox("Select Property Unit to update:", list(prop_options.keys()))
+                    selected_p_id = prop_options[selected_p_label]
                     
-                if ac3.button("🚨 Delete Property", use_container_width=True):
-                    supabase.table("inventory").delete().eq("id", selected_p_id).execute()
-                    st.warning("Property removed.")
-                    st.rerun()
+                    current_unit = next((item for item in properties if item["id"] == selected_p_id), None)
+                    
+                    if ac2.button("✅ Mark Selected Rent Out", use_container_width=True):
+                        supabase.table("inventory").update({"status": "Rent Out"}).eq("id", selected_p_id).execute()
+                        log_activity(st.session_state.user, f"Marked Property ID {selected_p_id} as Rent Out", current_unit['area'] if current_unit else "N/A")
+                        st.success("Property marked as Rent Out!")
+                        st.rerun()
+                        
+                    if ac3.button("🚨 Delete Property", use_container_width=True):
+                        supabase.table("inventory").delete().eq("id", selected_p_id).execute()
+                        st.warning("Property removed.")
+                        st.rerun()
         else: st.info("No matching properties found.")
     except Exception as e: st.error(f"Error: {e}")
 
 # -----------------------------
-# 4. CLIENTS DATABASE (TABLE DISPLAY FIXED)
+# 4. CLIENTS DATABASE (WATCH MODE INTEGRATED)
 # -----------------------------
 elif st.session_state.current_nav == "Clients":
     st.title("👥 Registered Clients Database")
@@ -357,7 +373,6 @@ elif st.session_state.current_nav == "Clients":
         if clients:
             df_clients = pd.DataFrame(clients)
             
-            # Ensured Date/Time and Agent Name columns are visible in display
             all_client_cols = ["id", "created_at", "added_by", "client_name", "client_contact", "demand_type", "max_budget", "preferred_area", "status"]
             display_cols = [c for c in all_client_cols if c in df_clients.columns]
             
@@ -370,26 +385,27 @@ elif st.session_state.current_nav == "Clients":
             
             st.dataframe(df_clients[display_cols].style.apply(style_client_row, axis=1), use_container_width=True, hide_index=True)
             
-            # ACTION BUTTONS CONTROL PANEL
-            st.markdown("### 🛠️ Client Status Update Control Center")
-            with st.container(border=True):
-                cc_col1, cc_col2, cc_col3 = st.columns([4, 3, 3])
-                client_options = {f"ID: {c['id']} - {c['client_name']} [Status: {c['status']}]": c['id'] for c in clients}
-                sel_client_label = cc_col1.selectbox("Select Target Client:", list(client_options.keys()))
-                sel_client_id = client_options[sel_client_label]
-                
-                current_client_record = next((x for x in clients if x["id"] == sel_client_id), None)
-                
-                if cc_col2.button("🤝 Mark Status: House Found", use_container_width=True):
-                    supabase.table("clients").update({"status": "House Found"}).eq("id", sel_client_id).execute()
-                    log_activity(st.session_state.user, f"Marked Client {current_client_record['client_name']} as House Found", current_client_record.get('preferred_area', 'N/A') if current_client_record else "N/A")
-                    st.success("Client marked as House Found successfully!")
-                    st.rerun()
-                
-                if cc_col3.button("🚨 Delete Client From System", use_container_width=True):
-                    supabase.table("clients").delete().eq("id", sel_client_id).execute()
-                    st.warning("Client profile removed.")
-                    st.rerun()
+            # Action Controls hide for Umer Bhai (Viewer)
+            if st.session_state.role != "Viewer":
+                st.markdown("### 🛠️ Client Status Update Control Center")
+                with st.container(border=True):
+                    cc_col1, cc_col2, cc_col3 = st.columns([4, 3, 3])
+                    client_options = {f"ID: {c['id']} - {c['client_name']} [Status: {c['status']}]": c['id'] for c in clients}
+                    sel_client_label = cc_col1.selectbox("Select Target Client:", list(client_options.keys()))
+                    sel_client_id = client_options[sel_client_label]
+                    
+                    current_client_record = next((x for x in clients if x["id"] == sel_client_id), None)
+                    
+                    if cc_col2.button("🤝 Mark Status: House Found", use_container_width=True):
+                        supabase.table("clients").update({"status": "House Found"}).eq("id", sel_client_id).execute()
+                        log_activity(st.session_state.user, f"Marked Client {current_client_record['client_name']} as House Found", current_client_record.get('preferred_area', 'N/A') if current_client_record else "N/A")
+                        st.success("Client marked as House Found successfully!")
+                        st.rerun()
+                    
+                    if cc_col3.button("🚨 Delete Client From System", use_container_width=True):
+                        supabase.table("clients").delete().eq("id", sel_client_id).execute()
+                        st.warning("Client profile removed.")
+                        st.rerun()
         else: st.info("No registered clients match this name.")
     except Exception as e: st.error(f"Error handling system display: {e}")
 
@@ -397,70 +413,67 @@ elif st.session_state.current_nav == "Clients":
 # 5. DEAL DONE REGISTRY
 # -----------------------------
 elif st.session_state.current_nav == "Deal Done Registry":
-    st.title("🤝 Deal Closure & Done Registry")
-    
-    db_props, db_clients = [], []
-    try:
-        db_props = supabase.table("inventory").select("id, area, marla, price").neq("status", "Rent Out").execute().data
-        db_clients = supabase.table("clients").select("id, client_name, preferred_area").neq("status", "House Found").execute().data
-    except: pass
+    if st.session_state.role == "Viewer":
+        st.error("Aap ko is page tak rasai nahi hai.")
+    else:
+        st.title("🤝 Deal Closure & Done Registry")
+        # Registry Form as before...
+        db_props, db_clients = [], []
+        try:
+            db_props = supabase.table("inventory").select("id, area, marla, price").neq("status", "Rent Out").execute().data
+            db_clients = supabase.table("clients").select("id, client_name, preferred_area").neq("status", "House Found").execute().data
+        except: pass
 
-    with st.form("main_deal_done_entry_form", clear_on_submit=True):
-        f_c1, f_c2 = st.columns(2)
-        if db_props:
-            prop_list = [f"ID: {p['id']} - {p['marla']} Marla at {p['area']} ({p['price']} PKR)" for p in db_props]
-            selected_house = f_c1.selectbox("Select Property from Active Inventory:", prop_list)
-        else: selected_house = f_c1.text_input("Manual Property Entry")
-            
-        if db_clients:
-            client_list = [f"ID: {c['id']} - {c['client_name']} ({c['preferred_area']})" for c in db_clients]
-            selected_client = f_c2.selectbox("Select Registered Client:", client_list)
-        else: selected_client = f_c2.text_input("Manual Client Entry")
-            
-        f_c3, f_c4 = st.columns(2)
-        closing_agent = f_c3.selectbox("Which Staff Member closed this deal?", list(USER_DB.keys()))
-        deal_commission = f_c4.number_input("Commission Earned (PKR)", min_value=0, value=20000, step=5000)
-        deal_area = st.text_input("Deal Location / Area Name")
+        with st.form("main_deal_done_entry_form", clear_on_submit=True):
+            f_c1, f_c2 = st.columns(2)
+            if db_props:
+                prop_list = [f"ID: {p['id']} - {p['marla']} Marla at {p['area']} ({p['price']} PKR)" for p in db_props]
+                selected_house = f_c1.selectbox("Select Property from Active Inventory:", prop_list)
+            else: selected_house = f_c1.text_input("Manual Property Entry")
+                
+            if db_clients:
+                client_list = [f"ID: {c['id']} - {c['client_name']} ({c['preferred_area']})" for c in db_clients]
+                selected_client = f_c2.selectbox("Select Registered Client:", client_list)
+            else: selected_client = f_c2.text_input("Manual Client Entry")
+                
+            f_c3, f_c4 = st.columns(2)
+            closing_agent = f_c3.selectbox("Which Staff Member closed this deal?", ["sawer khan", "tariq"])
+            deal_commission = f_c4.number_input("Commission Earned (PKR)", min_value=0, value=20000, step=5000)
+            deal_area = st.text_input("Deal Location / Area Name")
 
-        if st.form_submit_button("🚀 Finalize and Lock This Deal"):
-            if not selected_house or not selected_client: st.error("Details missing!")
-            else:
-                try:
-                    final_house_str, final_client_str = str(selected_house), str(selected_client)
+            if st.form_submit_button("🚀 Finalize and Lock This Deal"):
+                if not selected_house or not selected_client: st.error("Details missing!")
+                else:
                     try:
-                        if "ID:" in final_house_str:
-                            p_id = int(final_house_str.split("-")[0].replace("ID:", "").strip())
-                            supabase.table("inventory").update({"status": "Rent Out"}).eq("id", p_id).execute()
-                    except: pass
-                    try:
-                        if "ID:" in final_client_str:
-                            c_id = int(final_client_str.split("-")[0].replace("ID:", "").strip())
-                            supabase.table("clients").update({"status": "House Found"}).eq("id", c_id).execute()
-                    except: pass
+                        final_house_str, final_client_str = str(selected_house), str(selected_client)
+                        try:
+                            if "ID:" in final_house_str:
+                                p_id = int(final_house_str.split("-")[0].replace("ID:", "").strip())
+                                supabase.table("inventory").update({"status": "Rent Out"}).eq("id", p_id).execute()
+                        except: pass
+                        try:
+                            if "ID:" in final_client_str:
+                                c_id = int(final_client_str.split("-")[0].replace("ID:", "").strip())
+                                supabase.table("clients").update({"status": "House Found"}).eq("id", c_id).execute()
+                        except: pass
 
-                    new_deal_object = {
-                        "created_at": datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-                        "client_name": final_client_str.split("-")[-1].strip() if "-" in final_client_str else final_client_str,
-                        "property_details": final_house_str, 
-                        "agent_name": closing_agent, 
-                        "commission_earned": deal_commission
-                    }
-                    try:
+                        new_deal_object = {
+                            "created_at": datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                            "client_name": final_client_str.split("-")[-1].strip() if "-" in final_client_str else final_client_str,
+                            "property_details": final_house_str, 
+                            "agent_name": closing_agent, 
+                            "commission_earned": deal_commission
+                        }
                         supabase.table("deals").insert(new_deal_object).execute()
                         st.success("🔥 Deal Logged and Locked inside System Successfully!")
-                    except Exception as rls_err:
-                        st.session_state.local_deals.append(new_deal_object)
-                        st.warning("⚠️ Status Updated! Deal saved to Dashboard (RLS Bypassed).")
-                    
-                    st.rerun()
-                except Exception as e: st.error(f"System Error: {e}")
+                        st.rerun()
+                    except Exception as e: st.error(f"System Error: {e}")
 
 # -----------------------------
 # 6. DEALS HISTORY MODULE
 # -----------------------------
 elif st.session_state.current_nav == "Deals History":
     st.title("📜 Successful Closed Deals History Log")
-    
     if all_deals_list:
         df_deals_display = pd.DataFrame(all_deals_list)
         pdf_html = convert_df_to_pdf_html(df_deals_display, "Closed Deals Registry Report")
@@ -469,11 +482,10 @@ elif st.session_state.current_nav == "Deals History":
     else: st.info("System Registry Dashboard khali hai.")
 
 # -----------------------------
-# 7. WORKING PROGRESS MODULE
+# 7. WORKING PROGRESS MODULE (STAFF LOGS)
 # -----------------------------
 elif st.session_state.current_nav == "Working Progress":
-    st.title("📈 Staff Daily Progress Reports")
-    
+    st.title("📈 Staff Daily Progress Reports (Sawer Khan & Tariq)")
     try:
         logs = supabase.table("activity_logs").select("*").order("id", desc=True).execute().data
         if logs:
@@ -513,7 +525,13 @@ elif st.session_state.current_nav == "Deal Matcher":
 
 elif st.session_state.current_nav == "Finance":
     st.title("💰 Ledger Management")
-    if st.session_state.role != "Admin": st.error("Restricted area.")
+    if st.session_state.role == "Viewer":
+        # Umer bhai can watch Finance records but can't add records
+        try:
+            acc_data = supabase.table("accounts").select("*").order("id", desc=True).execute().data
+            if acc_data: st.dataframe(pd.DataFrame(acc_data), use_container_width=True, hide_index=True)
+            else: st.info("Ledger records khali hain.")
+        except: pass
     else:
         with st.form("fin"):
             t = st.selectbox("Type", ["Income", "Expense"])
@@ -525,9 +543,7 @@ elif st.session_state.current_nav == "Finance":
 
 elif st.session_state.current_nav == "Activity Logs":
     st.title("📋 Audit Activity Log System")
-    if st.session_state.role != "Admin": st.error("Access denied.")
-    else:
-        try:
-            logs = supabase.table("activity_logs").select("*").order("created_at", desc=True).execute().data
-            if logs: st.dataframe(pd.DataFrame(logs)[["created_at", "user", "action", "target_area"]], use_container_width=True, hide_index=True)
-        except: pass
+    try:
+        logs = supabase.table("activity_logs").select("*").order("created_at", desc=True).execute().data
+        if logs: st.dataframe(pd.DataFrame(logs)[["created_at", "user", "action", "target_area"]], use_container_width=True, hide_index=True)
+    except: pass
