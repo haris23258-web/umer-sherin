@@ -16,6 +16,19 @@ st.set_page_config(
 # -----------------------------
 # CUSTOM CSS FOR REFINED FINISHING
 # -----------------------------
+
+
+# -----------------------------
+# DATABASE CONNECTION
+# -----------------------------
+try:
+    supabase = create_client(st.secrets["SUPABASE_URL"], st.secrets["SUPABASE_KEY"])
+except Exception as e:
+    st.error(f"Database connection failed: {e}")
+    st.stop()
+# -----------------------------
+# CUSTOM CSS FOR REFINED FINISHING (MOBILE RESPONSIVE FIX)
+# -----------------------------
 st.markdown("""
 <style>
 /* Background & Core App Layout */
@@ -25,13 +38,15 @@ st.markdown("""
 /* Elegant Minimalist Dashboard Cards */
 .metric-container {
     display: flex;
-    gap: 1.5rem;
+    flex-wrap: wrap; /* Allows cards to wrap on smaller screens */
+    gap: 1.2rem;
     margin-bottom: 2rem;
 }
 .kpi-card {
     flex: 1;
+    min-width: 220px; /* Prevents cards from crushing into squished vertical bars */
     background: #ffffff; 
-    padding: 24px; 
+    padding: 20px; 
     border-radius: 16px;
     box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.05), 0 2px 4px -2px rgb(0 0 0 / 0.05);
     border: 1px solid #e2e8f0;
@@ -44,15 +59,15 @@ st.markdown("""
 .kpi-label {
     margin: 0;
     color: #64748b;
-    font-size: 13px;
+    font-size: 12px;
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.05em;
 }
 .kpi-value {
-    margin: 8px 0 0 0;
+    margin: 6px 0 0 0;
     color: #0f172a;
-    font-size: 28px;
+    font-size: 24px;
     font-weight: 800;
 }
 
@@ -75,18 +90,28 @@ st.markdown("""
     margin-top: 20px;
     line-height: 1.5;
 }
+
+/* 📱 MOBILE RESPONSIVE TUNING */
+@media (max-width: 768px) {
+    .metric-container {
+        flex-direction: column; /* Stacks cards vertically on mobile */
+        gap: 0.8rem;
+    }
+    .kpi-card {
+        padding: 16px; /* Reduced padding for mobile to save space */
+        min-width: 100%;
+    }
+    .kpi-value {
+        font-size: 20px; /* Slightly smaller text for compact layout */
+    }
+    .block-container {
+        padding-top: 1rem;
+        padding-left: 0.8rem;
+        padding-right: 0.8rem;
+    }
+}
 </style>
 """, unsafe_allow_html=True)
-
-# -----------------------------
-# DATABASE CONNECTION
-# -----------------------------
-try:
-    supabase = create_client(st.secrets["SUPABASE_URL"], st.secrets["SUPABASE_KEY"])
-except Exception as e:
-    st.error(f"Database connection failed: {e}")
-    st.stop()
-
 # -----------------------------
 # HELPERS & PDF GENERATOR
 # -----------------------------
